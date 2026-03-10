@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Between Readers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cream: #f5f0e8;
+      --cream-dark: #ede6d6;
+      --ink: #1a1612;
+      --ink-light: #3d342a;
+      --ink-faint: #8a7e72;
+      --rust: #8b3a2a;
+      --gold: #b8860b;
+      --gold-light: #d4a843;
+      --border: #c8bca8;
+      --shadow: rgba(26, 22, 18, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--cream);
+      color: var(--ink);
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.7;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Paper texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.6;
+    }
+
+    /* Decorative rule */
+    .rule {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--gold);
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      margin: 0 auto;
+    }
+    .rule::before, .rule::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      padding: 64px 24px 48px;
+      position: relative;
+    }
+
+    .header-ornament {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 0.2s;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(52px, 8vw, 88px);
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 0.4s;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--ink-light);
+    }
+
+    .tagline {
+      font-family: 'Spectral', serif;
+      font-style: italic;
+      font-size: 19px;
+      color: var(--ink-faint);
+      margin-top: 20px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 0.6s;
+    }
+
+    .header-rule {
+      margin-top: 40px;
+      max-width: 400px;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 0.8s;
+    }
+
+    /* ── ISBN SCANNER ── */
+    .scanner-section {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      text-align: center;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 1s;
+    }
+
+    .scanner-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 24px;
+    }
+
+    .scanner-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 40px 32px;
+      box-shadow: 0 4px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.8);
+      position: relative;
+    }
+
+    .scanner-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+    }
+
+    .scanner-prompt {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-style: italic;
+      color: var(--ink-light);
+      margin-bottom: 28px;
+    }
+
+    .isbn-input-row {
+      display: flex;
+      gap: 0;
+      max-width: 440px;
+      margin: 0 auto 16px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+
+    .isbn-input-row:focus-within {
+      box-shadow: 0 0 0 2px var(--gold-light);
+      border-color: var(--gold);
+    }
+
+    .isbn-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 14px 18px;
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 17px;
+      background: var(--cream);
+      color: var(--ink);
+      letter-spacing: 0.05em;
+    }
+
+    .isbn-input::placeholder { color: var(--ink-faint); font-style: italic; }
+
+    .isbn-btn {
+      background: var(--ink);
+      color: var(--cream);
+      border: none;
+      padding: 14px 24px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .isbn-btn:hover { background: var(--rust); }
+
+    .scanner-note {
+      font-size: 14px;
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+
+    /* Book result panel */
+    .book-result {
+      display: none;
+      margin-top: 28px;
+      text-align: left;
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+    }
+
+    .book-result.visible { display: block; animation: fadeUp 0.5s ease forwards; }
+
+    .book-result-inner {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .book-cover-placeholder {
+      width: 72px;
+      min-width: 72px;
+      height: 100px;
+      background: linear-gradient(135deg, var(--cream-dark), var(--border));
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 3px 3px 0 var(--shadow);
+    }
+
+    .book-meta h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .book-meta .author {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .journey-count {
+      display: inline-block;
+      background: var(--cream-dark);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      color: var(--ink-light);
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    .view-journey-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px;
+      background: var(--rust);
+      color: var(--cream);
+      border: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-align: center;
+    }
+
+    .view-journey-btn:hover { background: var(--ink); }
+
+    /* ── CATALOG ── */
+    .catalog-section {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px 24px 80px;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(30px, 4vw, 42px);
+      font-weight: 300;
+      margin: 16px 0 8px;
+    }
+
+    .section-subtitle {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 17px;
+    }
+
+    /* Book grid */
+    .book-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2px;
+    }
+
+    .book-card {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 32px 28px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .book-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, var(--rust), var(--gold));
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
+      transform-origin: left;
+    }
+
+    .book-card:hover { 
+      background: var(--cream);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px var(--shadow);
+      z-index: 1;
+    }
+
+    .book-card:hover::after { transform: scaleX(1); }
+
+    .book-card-number {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--ink-faint);
+      margin-bottom: 16px;
+    }
+
+    .book-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .book-card-author {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 15px;
+      margin-bottom: 20px;
+    }
+
+    .book-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      margin-top: auto;
+    }
+
+    .book-card-stops {
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-family: 'Cormorant Garamond', serif;
+      letter-spacing: 0.05em;
+    }
+
+    .book-card-location {
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-style: italic;
+      text-align: right;
+    }
+
+    .book-card-status {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+      margin-right: 6px;
+      animation: pulse 2.5s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Locked overlay */
+    .locked-notice {
+      position: absolute;
+      inset: 0;
+      background: rgba(245, 240, 232, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      backdrop-filter: blur(2px);
+    }
+
+    .book-card:hover .locked-notice { opacity: 1; }
+
+    .locked-notice span {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-top: 8px;
+    }
+
+    .lock-icon { font-size: 22px; }
+
+    /* ── JOURNEY MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 22, 18, 0.7);
+      z-index: 500;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--cream);
+      max-width: 680px;
+      width: 100%;
+      position: relative;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+      animation: fadeUp 0.4s ease forwards;
+    }
+
+    .modal-top {
+      padding: 40px 40px 32px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .modal-top::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 20px; right: 20px;
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--ink-faint);
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--ink); }
+
+    .modal-book-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px;
+      font-weight: 500;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+
+    .modal-book-author {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 17px;
+      margin-bottom: 20px;
+    }
+
+    .modal-release-note {
+      background: white;
+      border-left: 3px solid var(--gold);
+      padding: 16px 20px;
+      font-style: italic;
+      font-size: 16px;
+      color: var(--ink-light);
+      line-height: 1.6;
+    }
+
+    .modal-release-note cite {
+      display: block;
+      margin-top: 8px;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      font-style: normal;
+      color: var(--ink-faint);
+    }
+
+    /* Journey entries */
+    .modal-body { padding: 32px 40px; }
+
+    .journey-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 28px;
+    }
+
+    .journey-entry {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 0 20px;
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .journey-entry:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 23px;
+      top: 48px;
+      bottom: -16px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .entry-number {
+      width: 48px;
+      height: 48px;
+      background: white;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: var(--ink-faint);
+      flex-shrink: 0;
+    }
+
+    .entry-content {}
+
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .entry-location {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .entry-date {
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+
+    .entry-message {
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--ink-light);
+      margin-bottom: 12px;
+    }
+
+    .entry-photo {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      display: block;
+    }
+
+    .entry-photo-placeholder {
+      width: 100%;
+      height: 120px;
+      background: var(--cream-dark);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: var(--border);
+    }
+
+    /* Add entry form */
+    .add-entry-section {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      background: white;
+    }
+
+    .add-entry-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-style: italic;
+      margin-bottom: 20px;
+      color: var(--ink-light);
+    }
+
+    .form-field {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 6px;
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--cream);
+      padding: 11px 14px;
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 16px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      border-radius: 0;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.15);
+    }
+
+    .form-textarea { min-height: 100px; resize: vertical; }
+
+    .photo-upload {
+      border: 1px dashed var(--border);
+      background: var(--cream);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .photo-upload:hover { border-color: var(--gold); background: white; }
+
+    .photo-upload-text {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 15px;
+    }
+
+    .submit-entry-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--ink);
+      color: var(--cream);
+      border: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    .submit-entry-btn:hover { background: var(--rust); }
+
+    /* ── ABOUT ── */
+    .about-section {
+      background: var(--ink);
+      color: var(--cream);
+      padding: 80px 24px;
+      text-align: center;
+    }
+
+    .about-inner {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .about-section .section-title {
+      color: var(--cream);
+      margin-bottom: 24px;
+    }
+
+    .about-section .rule::before, .about-section .rule::after {
+      background: linear-gradient(to right, transparent, rgba(245,240,232,0.3), transparent);
+    }
+
+    .about-text {
+      font-size: 18px;
+      line-height: 1.8;
+      color: rgba(245,240,232,0.75);
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    .sticker-note {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(245,240,232,0.15);
+      padding: 24px 28px;
+      margin-top: 36px;
+      text-align: left;
+    }
+
+    .sticker-note-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold-light);
+      margin-bottom: 10px;
+    }
+
+    .sticker-note-text {
+      font-size: 15px;
+      color: rgba(245,240,232,0.65);
+      line-height: 1.7;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-style: italic;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── SCANNER CAMERA OVERLAY ── */
+    .camera-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 22, 18, 0.96);
+      z-index: 600;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .camera-overlay.open { display: flex; }
+
+    .camera-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .camera-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      font-weight: 300;
+      color: var(--cream);
+      margin-bottom: 6px;
+    }
+
+    .camera-subtitle {
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 15px;
+    }
+
+    .camera-viewport {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      border: 1px solid rgba(245,240,232,0.15);
+    }
+
+    #cameraVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Scanning reticle */
+    .scan-reticle {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .reticle-inner {
+      width: 75%;
+      height: 35%;
+      position: relative;
+    }
+
+    .reticle-inner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(184, 134, 11, 0.5);
+    }
+
+    /* Corner accents */
+    .reticle-inner::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+    }
+
+    .corner {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: var(--gold-light);
+      border-style: solid;
+    }
+    .corner.tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+    .corner.tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+    .corner.bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+    .corner.br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+    /* Scan line animation */
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+      animation: scanLine 2s ease-in-out infinite;
+    }
+
+    @keyframes scanLine {
+      0% { top: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    .camera-status {
+      margin-top: 20px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      min-height: 24px;
+      text-align: center;
+    }
+
+    .camera-status.success { color: var(--gold-light); }
+    .camera-status.error { color: var(--rust); }
+
+    .camera-close {
+      margin-top: 24px;
+      background: none;
+      border: 1px solid rgba(245,240,232,0.2);
+      color: rgba(245,240,232,0.6);
+      padding: 10px 28px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .camera-close:hover {
+      border-color: rgba(245,240,232,0.5);
+      color: var(--cream);
+    }
+
+    /* Scan button */
+    .scan-btn {
+      background: none;
+      border: 1px solid var(--border);
+      padding: 14px 18px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      letter-spacing: 0.1em;
+      color: var(--ink-light);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .scan-btn:hover {
+      background: var(--cream-dark);
+      border-color: var(--gold);
+      color: var(--ink);
+    }
+
+    .scan-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .modal-top, .modal-body, .add-entry-section { padding-left: 24px; padding-right: 24px; }
+      .book-grid { grid-template-columns: 1fr; }
+      .book-result-inner { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <p class="header-ornament">A Library in Motion</p>
+    <h1>Between<br><em>Readers</em></h1>
+    <p class="tagline">Every book has a story. This is where it continues.</p>
+    <div class="rule header-rule">✦</div>
+  </header>
+
+  <!-- ISBN SCANNER -->
+  <section class="scanner-section">
+    <p class="scanner-label">Found a book with one of our stickers?</p>
+    <div class="scanner-box">
+      <p class="scanner-prompt">Scan the barcode or enter the ISBN</p>
+
+      <button class="scan-btn" onclick="openCamera()" style="margin: 0 auto 20px; display:flex;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 9V6a1 1 0 0 1 1-1h3M3 15v3a1 1 0 0 0 1 1h3M21 9V6a1 1 0 0 0-1-1h-3M21 15v3a1 1 0 0 1-1 1h-3M7 8h1M7 12h1M7 16h1M11 8h1M11 12h1M11 16h1M15 8h2M15 12h2M15 16h2"/>
+        </svg>
+        Scan Barcode
+      </button>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; color:var(--ink-faint); font-size:13px; font-style:italic;">
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+        or type it in
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+      </div>
+
+      <div class="isbn-input-row">
+        <input class="isbn-input" id="isbnInput" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" />
+        <button class="isbn-btn" onclick="lookupISBN()">Find It</button>
+      </div>
+      <p class="scanner-note">The ISBN is on the back of the book, above the barcode</p>
+
+      <!-- Result panel -->
+      <div class="book-result" id="bookResult">
+        <div class="book-result-inner">
+          <div class="book-cover-placeholder">📖</div>
+          <div class="book-meta">
+            <h3 id="resultTitle">—</h3>
+            <p class="author" id="resultAuthor">—</p>
+            <span class="journey-count" id="resultStops">— stops along the way</span>
+          </div>
+        </div>
+        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openModal()">
+          Read Its Journey →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATALOG -->
+  <section class="catalog-section">
+    <div class="section-header">
+      <div class="rule" style="max-width:300px; margin: 0 auto 16px;">✦</div>
+      <h2 class="section-title">Books in the Wild</h2>
+      <p class="section-subtitle">Each one out there, somewhere, waiting to be found</p>
+    </div>
+
+    <div class="book-grid" id="bookGrid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="about-section">
+    <div class="about-inner">
+      <div class="rule" style="margin-bottom: 32px;">✦</div>
+      <h2 class="section-title">How It Works</h2>
+      <p class="about-text">
+        A book is left somewhere — a park bench, a coffee shop, a train seat. Inside the cover is a small sticker with an address. You're reading this, so you probably found one.
+      </p>
+      <p class="about-text">
+        Every book has a page here. Its journey is the record of every person who found it, where they were, and what they wanted to say.
+      </p>
+      <div class="sticker-note">
+        <p class="sticker-note-title">To add your chapter</p>
+        <p class="sticker-note-text">Enter the ISBN from the back of the book above. You'll find the book's page — read where it's been, then add your own entry: where you found it, a photo if you'd like, and whatever you feel like leaving behind.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    betweenreaders.com &nbsp;·&nbsp; <em>leave it somewhere good</em>
+  </footer>
+
+  <!-- CAMERA SCANNER OVERLAY -->
+  <div class="camera-overlay" id="cameraOverlay">
+    <div class="camera-header">
+      <p class="camera-title">Scan the barcode</p>
+      <p class="camera-subtitle">Point your camera at the ISBN barcode on the back of the book</p>
+    </div>
+    <div class="camera-viewport">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <div class="scan-reticle">
+        <div class="reticle-inner">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+    </div>
+    <p class="camera-status" id="cameraStatus">Align barcode within the frame</p>
+    <button class="camera-close" onclick="closeCamera()">Cancel</button>
+  </div>
+
+  <!-- JOURNEY MODAL -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal" id="modal">
+      <div class="modal-top">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <h2 class="modal-book-title" id="modalTitle">—</h2>
+        <p class="modal-book-author" id="modalAuthor">—</p>
+        <div class="modal-release-note">
+          <span id="modalReleaseNote">—</span>
+          <cite id="modalReleaseMeta">—</cite>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <p class="journey-heading" id="journeyHeading">The Journey</p>
+        <div id="journeyEntries">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="add-entry-section">
+        <p class="add-entry-title">Add your chapter</p>
+        <div class="form-field">
+          <label class="form-label">Where did you find it?</label>
+          <input class="form-input" type="text" placeholder="A coffee shop in Portland, a bench in Riverside Park…" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Something to say</label>
+          <textarea class="form-textarea" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
+        </div>
+        <div class="form-field">
+          <label class="form-label">A photo (optional)</label>
+          <div class="photo-upload" onclick="this.querySelector('input').click()">
+            <p class="photo-upload-text">📷 &nbsp; Tap to add a photo</p>
+            <input type="file" accept="image/*" style="display:none" />
+          </div>
+        </div>
+        <button class="submit-entry-btn" onclick="submitEntry()">Leave Your Mark</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Sample data ──
+    const SITE_NAME = "betweenreaders.com";
+
+    const books = [
+      {
+        id: 1,
+        isbn: "9780140283297",
+        title: "The Sheltering Sky",
+        author: "Paul Bowles",
+        releaseNote: "I've carried this book across three cities before I finally understood it. Now it's your turn.",
+        releasedBy: "Released in Philadelphia, PA · March 2024",
+        status: "in the wild",
+        entries: [
+          {
+            location: "A café in West Philadelphia",
+            date: "March 14, 2024",
+            message: "Found this tucked between two menus at a corner café. Started reading it right there and didn't leave for two hours. Leaving it on the same table for whoever comes next.",
+            hasPhoto: true
+          },
+          {
+            location: "30th Street Station, Philadelphia",
+            date: "April 2, 2024",
+            message: "The woman who left this in the café — whoever you are — thank you. I almost missed my train.",
+            hasPhoto: false
+          },
+          {
+            location: "Somewhere on Amtrak, between Philly and New York",
+            date: "April 2, 2024",
+            message: "Reading this on the train feels exactly right. Leaving it in the seat pocket.",
+            hasPhoto: true
+          }
+        ]
+      },
+      {
+        id: 2,
+        isbn: "9780679720201",
+        title: "Housekeeping",
+        author: "Marilynne Robinson",
+        releaseNote: "The loneliest and most beautiful book I know. I hope it finds the right person.",
+        releasedBy: "Released in Philadelphia, PA · January 2024",
+        status: "in the wild",
+        entries: [
+          {
+            location: "Free Library of Philadelphia — Little Free Library on Pine St",
+            date: "January 22, 2024",
+            message: "I wasn't even looking for a book. I just stopped walking because something made me stop. That's how I found this.",
+            hasPhoto: true
+          },
+          {
+            location: "A fire escape in South Philly",
+            date: "February 8, 2024",
+            message: "Read the whole thing in one weekend. Cried twice. Passing it to my neighbor.",
+            hasPhoto: false
+          }
+        ]
+      },
+      {
+        id: 3,
+        isbn: "9780743273565",
+        title: "The Great Gatsby",
+        author: "F. Scott Fitzgerald",
+        releaseNote: "Everyone thinks they know this one. Read it again.",
+        releasedBy: "Released in Philadelphia, PA · February 2024",
+        status: "in the wild",
+        entries: [
+          {
+            location: "Left on a bench near Rittenhouse Square",
+            date: "February 19, 2024",
+            message: "I've 'read' this before but clearly hadn't. Left it on the bench I read the last chapter on.",
+            hasPhoto: true
+          }
+        ]
+      },
+      {
+        id: 4,
+        isbn: "9780374533557",
+        title: "Stoner",
+        author: "John Williams",
+        releaseNote: "The saddest book about a quiet life. I mean this as the highest compliment.",
+        releasedBy: "Released in Philadelphia, PA · April 2024",
+        status: "in the wild",
+        entries: []
+      },
+      {
+        id: 5,
+        isbn: "9780525559474",
+        title: "Normal People",
+        author: "Sally Rooney",
+        releaseNote: "I don't know why I keep buying copies of this to give away. I just do.",
+        releasedBy: "Released in Philadelphia, PA · May 2024",
+        status: "in the wild",
+        entries: [
+          {
+            location: "A bar in Fishtown",
+            date: "May 11, 2024",
+            message: "Someone left this at the bar. I read 60 pages before last call.",
+            hasPhoto: false
+          }
+        ]
+      },
+      {
+        id: 6,
+        isbn: "9780812993547",
+        title: "The Remains of the Day",
+        author: "Kazuo Ishiguro",
+        releaseNote: "A book about regret that somehow makes you feel less alone in yours.",
+        releasedBy: "Released in Philadelphia, PA · June 2024",
+        status: "in the wild",
+        entries: []
+      }
+    ];
+
+    let currentBook = null;
+
+    // ── Render catalog ──
+    function renderCatalog() {
+      const grid = document.getElementById('bookGrid');
+      grid.innerHTML = books.map((book, i) => `
+        <div class="book-card" onclick="openBookDirect(${book.id})">
+          <p class="book-card-number">No. ${String(i + 1).padStart(2, '0')}</p>
+          <h3 class="book-card-title">${book.title}</h3>
+          <p class="book-card-author">${book.author}</p>
+          <div class="book-card-footer">
+            <span class="book-card-stops">
+              <span class="book-card-status"></span>
+              ${book.entries.length} ${book.entries.length === 1 ? 'stop' : 'stops'}
+            </span>
+            <span class="book-card-location">In the wild</span>
+          </div>
+          <div class="locked-notice">
+            <span class="lock-icon">🔖</span>
+            <span>ISBN required to read</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ── ISBN lookup ──
+    function normalizeISBN(raw) {
+      return raw.replace(/[-\s]/g, '');
+    }
+
+    function lookupISBN() {
+      const raw = document.getElementById('isbnInput').value;
+      const isbn = normalizeISBN(raw);
+      const book = books.find(b => normalizeISBN(b.isbn) === isbn);
+      const resultEl = document.getElementById('bookResult');
+
+      if (book) {
+        currentBook = book;
+        document.getElementById('resultTitle').textContent = book.title;
+        document.getElementById('resultAuthor').textContent = book.author;
+        document.getElementById('resultStops').textContent =
+          book.entries.length === 0
+            ? "No entries yet — you're the first"
+            : `${book.entries.length} ${book.entries.length === 1 ? 'stop' : 'stops'} along the way`;
+        resultEl.classList.add('visible');
+      } else {
+        currentBook = null;
+        document.getElementById('resultTitle').textContent = "No book found for that ISBN";
+        document.getElementById('resultAuthor').textContent = "Double-check the number and try again";
+        document.getElementById('resultStops').textContent = "";
+        document.getElementById('viewJourneyBtn').style.display = 'none';
+        resultEl.classList.add('visible');
+        return;
+      }
+      document.getElementById('viewJourneyBtn').style.display = 'block';
+    }
+
+    // Enter key on ISBN input
+    document.getElementById('isbnInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') lookupISBN();
+    });
+
+    // ── Open modal from catalog (locked) ──
+    function openBookDirect(id) {
+      const isbn = prompt("Enter the ISBN from the back of the book to read its journey:");
+      if (!isbn) return;
+      const book = books.find(b => b.id === id);
+      if (book && normalizeISBN(isbn) === normalizeISBN(book.isbn)) {
+        currentBook = book;
+        openModal();
+      } else {
+        alert("That ISBN doesn't match this book.");
+      }
+    }
+
+    // ── Modal ──
+    function openModal() {
+      if (!currentBook) return;
+      const b = currentBook;
+
+      document.getElementById('modalTitle').textContent = b.title;
+      document.getElementById('modalAuthor').textContent = b.author;
+      document.getElementById('modalReleaseNote').textContent = `"${b.releaseNote}"`;
+      document.getElementById('modalReleaseMeta').textContent = `— ${b.releasedBy}`;
+
+      const heading = document.getElementById('journeyHeading');
+      heading.textContent = b.entries.length === 0
+        ? 'No entries yet'
+        : `The Journey · ${b.entries.length} ${b.entries.length === 1 ? 'stop' : 'stops'}`;
+
+      const container = document.getElementById('journeyEntries');
+      if (b.entries.length === 0) {
+        container.innerHTML = `<p style="font-style:italic; color:var(--ink-faint); margin-bottom:24px;">This book is newly released. You might be the first to find it.</p>`;
+      } else {
+        container.innerHTML = b.entries.map((entry, i) => `
+          <div class="journey-entry">
+            <div class="entry-number">${i + 1}</div>
+            <div class="entry-content">
+              <div class="entry-header">
+                <span class="entry-location">${entry.location}</span>
+                <span class="entry-date">${entry.date}</span>
+              </div>
+              <p class="entry-message">${entry.message}</p>
+              ${entry.hasPhoto
+                ? `<div class="entry-photo-placeholder">📷</div>`
+                : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('modalOverlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+
+    function submitEntry() {
+      alert("Your chapter has been added. Thank you for leaving a mark.");
+      closeModal();
+    }
+
+    // ── ZXing Barcode Scanner ──
+    let scannerActive = false;
+    let videoStream = null;
+    let scanInterval = null;
+    let zxingReady = false;
+    let readBarcodesFn = null;
+
+    async function initZXing() {
+      if (zxingReady) return true;
+      try {
+        // Load the IIFE script which registers ZXingWASM globally
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://fastly.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/reader/index.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+
+        // Point ZXing at the CDN-hosted .wasm file before first use
+        ZXingWASM.prepareZXingModule({
+          overrides: {
+            locateFile: (path, prefix) => {
+              if (path.endsWith('.wasm')) {
+                return 'https://fastly.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/reader/zxing_reader.wasm';
+              }
+              return prefix + path;
+            }
+          }
+        });
+
+        readBarcodesFn = ZXingWASM.readBarcodes;
+        zxingReady = true;
+        return true;
+      } catch(e) {
+        console.error('ZXing load error:', e);
+        return false;
+      }
+    }
+
+    async function openCamera() {
+      const overlay = document.getElementById('cameraOverlay');
+      const status = document.getElementById('cameraStatus');
+      const video = document.getElementById('cameraVideo');
+
+      overlay.classList.add('open');
+      status.className = 'camera-status';
+      status.textContent = 'Starting camera…';
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = videoStream;
+        await video.play();
+        status.textContent = 'Loading scanner…';
+
+        const ok = await initZXing();
+        if (!ok) {
+          status.className = 'camera-status error';
+          status.textContent = 'Scanner unavailable — please type the ISBN below';
+          return;
+        }
+
+        status.textContent = 'Align barcode within the frame';
+        scannerActive = true;
+        startScanLoop(video, status);
+
+      } catch(err) {
+        status.className = 'camera-status error';
+        if (err.name === 'NotAllowedError') {
+          status.textContent = 'Camera permission denied — please type the ISBN instead';
+        } else {
+          status.textContent = 'Camera unavailable — please type the ISBN below';
+        }
+      }
+    }
+
+    function startScanLoop(video, status) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      scanInterval = setInterval(async () => {
+        if (!scannerActive || video.readyState < 2 || !readBarcodesFn) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const results = await readBarcodesFn(imageData, {
+            tryHarder: true,
+            formats: ['EAN13', 'EAN8']
+          });
+
+          if (results && results.length > 0) {
+            const raw = results[0].text;
+            const clean = raw.replace(/\D/g, '');
+            // Only accept ISBN-13 (starts with 978 or 979, 13 digits)
+            if (clean.length === 13 && (clean.startsWith('978') || clean.startsWith('979'))) {
+              onBarcodeDetected(clean);
+            }
+          }
+        } catch(e) {
+          // Silent — try again next frame
+        }
+      }, 250);
+    }
+
+    function onBarcodeDetected(isbn) {
+      scannerActive = false;
+      const status = document.getElementById('cameraStatus');
+      status.className = 'camera-status success';
+      status.textContent = `Found: ${isbn}`;
+
+      // Flash reticle gold
+      const reticle = document.querySelector('.reticle-inner');
+      reticle.style.outline = '2px solid var(--gold-light)';
+      reticle.style.boxShadow = '0 0 24px rgba(212, 168, 67, 0.5)';
+
+      setTimeout(() => {
+        closeCamera();
+        document.getElementById('isbnInput').value = isbn;
+        lookupISBN();
+        document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 700);
+    }
+
+    function closeCamera() {
+      scannerActive = false;
+      clearInterval(scanInterval);
+      scanInterval = null;
+
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        videoStream = null;
+      }
+
+      const video = document.getElementById('cameraVideo');
+      video.srcObject = null;
+
+      document.getElementById('cameraOverlay').classList.remove('open');
+
+      const reticle = document.querySelector('.reticle-inner');
+      if (reticle) { reticle.style.outline = ''; reticle.style.boxShadow = ''; }
+    }
+
+    // ── Init ──
+    renderCatalog();
+  </script>
+</body>
+</html>
