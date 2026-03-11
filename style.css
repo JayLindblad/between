@@ -922,3 +922,27 @@ footer {
   .book-grid { grid-template-columns: 1fr; }
   .book-result-inner { flex-direction: column; }
 }
+
+/* ── Journey Map ── */
+.journey-map {
+  display: none;
+  height: 280px;
+  margin: 0 0 28px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.journey-map .leaflet-popup-content-wrapper {
+  border-radius: 3px;
+  box-shadow: 0 2px 8px var(--shadow);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--border);
+}
+
+.journey-map .leaflet-popup-tip {
+  background: var(--cream);
+}

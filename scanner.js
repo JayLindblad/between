@@ -122,11 +122,15 @@ function onBarcodeDetected(isbn) {
   reticle.style.outline = '2px solid var(--gold-light)';
   reticle.style.boxShadow = '0 0 24px rgba(212, 168, 67, 0.5)';
 
-  setTimeout(() => {
+  setTimeout(async () => {
     closeCamera();
     document.getElementById('isbnInput').value = isbn;
-    lookupISBN(); // defined in app.js
-    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await lookupISBN();
+    if (currentBook) {
+      openModal();
+    } else {
+      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }, 700);
 }
 
