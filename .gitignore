@@ -1,0 +1,10 @@
+# Credentials
+config.js
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
