@@ -1,5 +1,0 @@
-# Supabase credentials (anon key — safe to commit, but gitignored by default)
-config.js
-
-# Admin page contains service_role key — never commit this
-admin.html
