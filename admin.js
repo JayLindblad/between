@@ -66,6 +66,17 @@ async function adminLogout() {
   showLoginScreen();
 }
 
+function togglePasswordVisibility() {
+  const input = document.getElementById('loginPassword');
+  const icon = document.getElementById('eyeIcon');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  // swap to eye-off icon when visible
+  icon.innerHTML = show
+    ? '<path d="M17.94 17.94A10.1 10.1 0 0 1 12 20c-6.5 0-10-8-10-8a18.1 18.1 0 0 1 5.06-6.94M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a18.4 18.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>';
+}
+
 // Enter key on login form
 document.getElementById('loginPassword').addEventListener('keydown', e => {
   if (e.key === 'Enter') adminLogin();

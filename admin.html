@@ -363,7 +363,17 @@
       </div>
       <div class="field">
         <label for="loginPassword">Password</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" />
+        <div style="position:relative;">
+          <input type="password" id="loginPassword" autocomplete="current-password" style="padding-right:44px;" />
+          <button type="button" id="togglePassword" onclick="togglePasswordVisibility()"
+            style="position:absolute; right:0; top:0; bottom:0; width:44px; background:none; border:none; cursor:pointer; color:var(--ink-faint); display:flex; align-items:center; justify-content:center; padding:0; transition:color 0.2s;"
+            title="Show/hide password">
+            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <p id="loginError"></p>
       <button class="btn-primary" id="loginBtn" onclick="adminLogin()">Sign In</button>
