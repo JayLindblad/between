@@ -16,6 +16,8 @@ between/
 ├── app.js                          # Core app logic: Supabase client, data fetching, modal/form handling
 ├── scanner.js                      # Barcode scanning: ZXing WASM integration, camera lifecycle
 ├── style.css                       # All styling: design tokens, layout, animations, responsive
+├── admin.html                      # Admin panel: login, book CRUD, entry moderation, stats
+├── admin.js                        # Admin logic: Supabase Auth, book/entry management
 ├── config.js                       # NOT in repo — must exist locally with Supabase credentials
 ├── supabase/
 │   └── schema.sql                  # Database schema + RLS policies (run once in Supabase SQL Editor)
@@ -32,6 +34,8 @@ between/
 | `app.js` | Supabase init, data layer, ISBN lookup, catalog rendering, form submission, modal open/close |
 | `scanner.js` | Camera permission, ZXing lazy-load, scan loop, barcode detection, ISBN validation |
 | `style.css` | All visual design — color tokens, typography, layout, animations |
+| `admin.html` | Admin panel markup: login form, stats, books table, entries table |
+| `admin.js` | Supabase Auth login/logout, book CRUD, entry deletion, stats loading |
 | `config.js` | `SUPABASE_URL` and `SUPABASE_ANON_KEY` constants (gitignored) |
 
 ---
@@ -193,19 +197,27 @@ Push to `main` — the workflow in `.github/workflows/deploy.yml` automatically:
 
 ### Adding books to the catalog
 
-Books must be inserted directly — visitors can only add journey entries, not new books. Use the Supabase dashboard **Table Editor** or run:
+Use the admin panel at `/admin.html` — log in with your Supabase Auth credentials and use the **Add Book** form. Alternatively, insert directly via the Supabase dashboard **Table Editor** or SQL:
 
 ```sql
 insert into books (isbn, title, author, cover_url)
 values ('9780743273565', 'The Great Gatsby', 'F. Scott Fitzgerald', 'https://...');
 ```
 
+### Admin panel
+
+The admin panel lives at `/admin.html` (not linked from the public site). It requires a Supabase Auth account. Create your admin user once in the Supabase dashboard under **Authentication → Users → Add User**. Features:
+
+- **Stats** — total books, total entries, active books (those with ≥1 entry)
+- **Books** — add, edit (title/author/cover), delete (cascades to entries)
+- **Entries** — view 50 most recent, delete individual entries
+
 ### RLS policy summary
 
 | Table | SELECT | INSERT | UPDATE / DELETE |
 |-------|--------|--------|-----------------|
-| `books` | Public | Admin only (dashboard / service key) | Admin only |
-| `entries` | Public | Public (any visitor) | Nobody via anon key |
+| `books` | Public | Authenticated (admin) | Authenticated (admin) |
+| `entries` | Public | Public (any visitor) | Authenticated (admin) can delete |
 
 ---
 
