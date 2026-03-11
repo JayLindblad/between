@@ -1,5 +1,11 @@
 // ── Supabase client ──
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase;
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  // Will be surfaced as a clear error when adminLogin() is called
+  console.error('[admin] Supabase init failed:', e);
+}
 
 // ── Helpers ──
 function escapeHtml(str) {
@@ -39,6 +45,11 @@ async function adminLogin() {
 
   if (!email || !password) {
     errorEl.textContent = 'Please enter your email and password.';
+    return;
+  }
+
+  if (!supabase) {
+    errorEl.textContent = 'Configuration error — check that config.js exists and Supabase credentials are correct.';
     return;
   }
 
