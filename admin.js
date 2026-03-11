@@ -20,6 +20,17 @@ function normalizeISBN(raw) {
 }
 
 // ── Auth ──
+function showLoginScreen() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('adminPanel').style.display = 'none';
+}
+
+function showAdminPanel() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'block';
+  loadAll();
+}
+
 async function adminLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -32,21 +43,27 @@ async function adminLogin() {
   }
 
   errorEl.textContent = '';
-  btn.textContent = 'Signing in…';
+  btn.textContent = 'Signing in\u2026';
   btn.disabled = true;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  btn.textContent = 'Sign In';
-  btn.disabled = false;
-
-  if (error) {
-    errorEl.textContent = error.message;
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      errorEl.textContent = error.message;
+    } else {
+      showAdminPanel();
+    }
+  } catch (e) {
+    errorEl.textContent = 'Could not connect. Check your internet connection.';
+  } finally {
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
   }
 }
 
 async function adminLogout() {
   await supabase.auth.signOut();
+  showLoginScreen();
 }
 
 // Enter key on login form
@@ -54,16 +71,9 @@ document.getElementById('loginPassword').addEventListener('keydown', e => {
   if (e.key === 'Enter') adminLogin();
 });
 
-// ── Auth state ──
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'block';
-    loadAll();
-  } else {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminPanel').style.display = 'none';
-  }
+// ── Auth state — restore session on page reload ──
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session) showAdminPanel();
 });
 
 // ── Load everything ──
