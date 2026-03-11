@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Between Readers — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --cream: #f5f0e8;
+      --cream-dark: #ede6d6;
+      --ink: #1a1612;
+      --ink-light: #3d342a;
+      --ink-faint: #8a7e72;
+      --rust: #8b3a2a;
+      --gold: #b8860b;
+      --gold-light: #d4a843;
+      --border: #c8bca8;
+      --shadow: rgba(26, 22, 18, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 17px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── LOGIN ── */
+    #loginScreen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 40px var(--shadow);
+      position: relative;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+    }
+
+    .login-eyebrow {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 8px;
+    }
+
+    .login-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 30px;
+      font-weight: 300;
+      margin-bottom: 32px;
+    }
+
+    .field { margin-bottom: 16px; }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 6px;
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    .field input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--cream);
+      padding: 11px 14px;
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 16px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .field input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(184,134,11,0.15);
+    }
+
+    #loginError {
+      color: var(--rust);
+      font-style: italic;
+      font-size: 14px;
+      min-height: 20px;
+      margin-bottom: 12px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--ink);
+      color: var(--cream);
+      border: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: var(--rust); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── ADMIN PANEL ── */
+    #adminPanel { display: none; }
+
+    .admin-header {
+      background: var(--ink);
+      color: var(--cream);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--gold);
+    }
+
+    .admin-header-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 300;
+    }
+
+    .admin-header-title em { font-style: italic; color: var(--gold-light); }
+
+    .btn-logout {
+      background: none;
+      border: 1px solid rgba(245,240,232,0.25);
+      color: rgba(245,240,232,0.6);
+      padding: 8px 20px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover { border-color: rgba(245,240,232,0.6); color: var(--cream); }
+
+    .admin-body { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-bottom: 48px;
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 28px 24px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 48px;
+      font-weight: 300;
+      line-height: 1;
+      color: var(--ink);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-top: 8px;
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    /* Section blocks */
+    .admin-section { margin-bottom: 56px; }
+
+    .admin-section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    }
+
+    .admin-section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px;
+      font-weight: 300;
+    }
+
+    .btn-secondary {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--ink-light);
+      padding: 8px 18px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--gold); color: var(--ink); }
+
+    /* Add-book form */
+    #addBookForm {
+      display: none;
+      background: white;
+      border: 1px solid var(--border);
+      padding: 28px 28px 24px;
+      margin-bottom: 24px;
+    }
+
+    #addBookForm.open { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    #addBookForm .field { margin-bottom: 0; }
+    #addBookForm .field.full { grid-column: 1 / -1; }
+
+    #addBookForm .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    #addBookError {
+      font-style: italic;
+      color: var(--rust);
+      font-size: 14px;
+    }
+
+    /* Data tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid var(--border);
+    }
+
+    .data-table th {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--cream-dark);
+      font-weight: 400;
+    }
+
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+      vertical-align: middle;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--cream); }
+
+    .td-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; }
+    .td-author { font-style: italic; color: var(--ink-faint); }
+    .td-isbn { font-size: 13px; color: var(--ink-faint); font-family: monospace; letter-spacing: 0.05em; }
+    .td-count { text-align: center; font-family: 'Cormorant Garamond', serif; font-size: 18px; }
+    .td-date { font-size: 13px; color: var(--ink-faint); font-style: italic; white-space: nowrap; }
+    .td-location { font-family: 'Cormorant Garamond', serif; font-size: 16px; }
+    .td-message { font-size: 14px; color: var(--ink-light); max-width: 280px; }
+
+    .td-actions { white-space: nowrap; text-align: right; }
+
+    .btn-action {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      transition: color 0.15s;
+    }
+
+    .btn-edit { color: var(--gold); }
+    .btn-edit:hover { color: var(--ink); }
+    .btn-delete { color: var(--ink-faint); }
+    .btn-delete:hover { color: var(--rust); }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      font-style: italic;
+      color: var(--ink-faint);
+      background: white;
+      border: 1px solid var(--border);
+    }
+
+    /* Edit inline row */
+    .edit-row td { background: #fffdf7 !important; }
+    .edit-row input, .edit-row textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: white;
+      padding: 6px 10px;
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 15px;
+      color: var(--ink);
+      outline: none;
+    }
+    .edit-row input:focus, .edit-row textarea:focus {
+      border-color: var(--gold);
+    }
+
+    @media (max-width: 700px) {
+      .stats-row { grid-template-columns: 1fr; }
+      #addBookForm.open { grid-template-columns: 1fr; }
+      .data-table { font-size: 14px; }
+      .data-table th, .data-table td { padding: 10px 10px; }
+      .admin-header { padding: 16px 16px; }
+      .admin-body { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <p class="login-eyebrow">Between Readers</p>
+      <h1 class="login-title">Admin Panel</h1>
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" />
+      </div>
+      <p id="loginError"></p>
+      <button class="btn-primary" id="loginBtn" onclick="adminLogin()">Sign In</button>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel">
+
+    <header class="admin-header">
+      <span class="admin-header-title">Between <em>Readers</em> — Admin</span>
+      <button class="btn-logout" onclick="adminLogout()">Sign Out</button>
+    </header>
+
+    <div class="admin-body">
+
+      <!-- STATS -->
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+          <div class="stat-number" id="statBooks">—</div>
+          <div class="stat-label">Books in the Wild</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="statEntries">—</div>
+          <div class="stat-label">Journey Entries</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="statActive">—</div>
+          <div class="stat-label">Active Books</div>
+        </div>
+      </div>
+
+      <!-- BOOKS -->
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h2 class="admin-section-title">Books</h2>
+          <button class="btn-secondary" onclick="toggleAddBookForm()">+ Add Book</button>
+        </div>
+
+        <!-- Add book form -->
+        <div id="addBookForm">
+          <div class="field">
+            <label>ISBN</label>
+            <input type="text" id="newIsbn" placeholder="9780743273565" maxlength="13" />
+          </div>
+          <div class="field">
+            <label>Title</label>
+            <input type="text" id="newTitle" placeholder="The Great Gatsby" />
+          </div>
+          <div class="field">
+            <label>Author</label>
+            <input type="text" id="newAuthor" placeholder="F. Scott Fitzgerald" />
+          </div>
+          <div class="field">
+            <label>Cover URL <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+            <input type="url" id="newCoverUrl" placeholder="https://…" />
+          </div>
+          <div class="field full">
+            <label>Release note <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional — shown at top of journey)</span></label>
+            <input type="text" id="newReleaseNote" placeholder="Left on a bench in Riverside Park, spring 2025" />
+          </div>
+          <div class="field full">
+            <label>Released by <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+            <input type="text" id="newReleasedBy" placeholder="Jay" />
+          </div>
+          <div class="form-actions full">
+            <button class="btn-primary" style="width:auto; padding:10px 28px;" onclick="addBook()">Add Book</button>
+            <button class="btn-secondary" onclick="toggleAddBookForm()">Cancel</button>
+            <span id="addBookError"></span>
+          </div>
+        </div>
+
+        <div id="booksTableContainer"></div>
+      </div>
+
+      <!-- ENTRIES -->
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h2 class="admin-section-title">Recent Entries</h2>
+          <span style="font-size:14px; font-style:italic; color:var(--ink-faint);">50 most recent</span>
+        </div>
+        <div id="entriesTableContainer"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
