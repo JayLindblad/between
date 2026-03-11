@@ -12,11 +12,16 @@ This is a **vanilla JavaScript SPA** — no build step, no framework, no package
 
 ```
 between/
-├── index.html   # Single HTML page: structure, modal markup, section layout
-├── app.js       # Core app logic: Supabase client, data fetching, modal/form handling
-├── scanner.js   # Barcode scanning: ZXing WASM integration, camera lifecycle
-├── style.css    # All styling: design tokens, layout, animations, responsive
-└── config.js    # NOT in repo — must exist locally with Supabase credentials
+├── index.html                      # Single HTML page: structure, modal markup, section layout
+├── app.js                          # Core app logic: Supabase client, data fetching, modal/form handling
+├── scanner.js                      # Barcode scanning: ZXing WASM integration, camera lifecycle
+├── style.css                       # All styling: design tokens, layout, animations, responsive
+├── config.js                       # NOT in repo — must exist locally with Supabase credentials
+├── supabase/
+│   └── schema.sql                  # Database schema + RLS policies (run once in Supabase SQL Editor)
+└── .github/
+    └── workflows/
+        └── deploy.yml              # GitHub Actions: injects secrets, deploys to GitHub Pages
 ```
 
 ### File Responsibilities
@@ -156,6 +161,51 @@ There is no build step, test suite, or linter configured. Changes go directly to
 - Main development happens on feature branches prefixed `claude/`
 - Commit messages are descriptive and lowercase (e.g. `split into separate files`)
 - `config.js` is gitignored and must never be committed
+
+---
+
+## Deployment (GitHub Pages + Supabase)
+
+### One-time Supabase setup
+
+1. Create a project at [supabase.com](https://supabase.com) (free tier is sufficient)
+2. Open the **SQL Editor** in the Supabase dashboard
+3. Paste and run the contents of `supabase/schema.sql` — this creates both tables and RLS policies
+4. Find your credentials under **Project Settings → API**:
+   - **Project URL** → `SUPABASE_URL`
+   - **anon / public key** → `SUPABASE_ANON_KEY`
+
+### One-time GitHub setup
+
+1. In your GitHub repo go to **Settings → Secrets and variables → Actions**
+2. Add two repository secrets:
+   - `SUPABASE_URL` — your Supabase project URL
+   - `SUPABASE_ANON_KEY` — your Supabase anon key
+3. Go to **Settings → Pages**
+   - Set **Source** to `GitHub Actions`
+
+### Deploying
+
+Push to `main` — the workflow in `.github/workflows/deploy.yml` automatically:
+1. Writes `config.js` from the GitHub Secrets
+2. Uploads the site as a Pages artifact
+3. Deploys to `https://<your-username>.github.io/<repo-name>/`
+
+### Adding books to the catalog
+
+Books must be inserted directly — visitors can only add journey entries, not new books. Use the Supabase dashboard **Table Editor** or run:
+
+```sql
+insert into books (isbn, title, author, cover_url)
+values ('9780743273565', 'The Great Gatsby', 'F. Scott Fitzgerald', 'https://...');
+```
+
+### RLS policy summary
+
+| Table | SELECT | INSERT | UPDATE / DELETE |
+|-------|--------|--------|-----------------|
+| `books` | Public | Admin only (dashboard / service key) | Admin only |
+| `entries` | Public | Public (any visitor) | Nobody via anon key |
 
 ---
 
