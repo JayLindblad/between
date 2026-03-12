@@ -27,10 +27,8 @@ jobs:
 
       - name: Write config.js from secrets
         run: |
-          cat > config.js <<EOF
-          const SUPABASE_URL = '${{ secrets.SUPABASE_URL }}';
-          const SUPABASE_ANON_KEY = '${{ secrets.SUPABASE_ANON_KEY }}';
-          EOF
+          echo "const SUPABASE_URL = '${{ secrets.SUPABASE_URL }}';" > config.js
+          echo "const SUPABASE_ANON_KEY = '${{ secrets.SUPABASE_ANON_KEY }}';" >> config.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
