@@ -39,6 +39,23 @@ async function openCamera() {
   status.className = 'camera-status';
   status.textContent = 'Starting camera…';
 
+  debugLog('protocol=' + location.protocol + ' mediaDevices=' + !!navigator.mediaDevices);
+
+  // Query permission state if available (won't trigger a prompt)
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'camera' }).then(p => debugLog('camera perm: ' + p.state)).catch(() => {});
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    closeCamera();
+    const input = document.getElementById('isbnInput');
+    input.focus();
+    input.placeholder = 'Camera not supported on this connection — type the ISBN here';
+    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    debugLog('mediaDevices unavailable — page likely served over HTTP', 'error');
+    return;
+  }
+
   try {
     // Start camera and ZXing WASM load in parallel
     const [stream] = await Promise.all([
