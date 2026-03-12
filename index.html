@@ -162,7 +162,8 @@
       line.style.whiteSpace = 'pre-wrap';
       line.textContent = (new Date().toLocaleTimeString()) + ' ' + msg;
       el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
+      const panel = document.getElementById('debugPanel');
+      if (panel) panel.scrollTop = panel.scrollHeight;
     }
     window.onerror = (msg, src, line) => debugLog('ERROR: ' + msg + ' (' + src.split('/').pop() + ':' + line + ')', 'error');
     window.onunhandledrejection = e => debugLog('PROMISE: ' + (e.reason?.message || e.reason), 'error');

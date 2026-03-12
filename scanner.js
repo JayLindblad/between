@@ -118,7 +118,7 @@ function startScanLoop(video) {
     if (!w || !h) return;
 
     frameCount++;
-    if (frameCount === 1 || frameCount === 10) debugLog('scanning frame ' + frameCount + ' (' + w + 'x' + h + ')');
+    if (frameCount === 1 || frameCount % 30 === 0) debugLog('scanning frame ' + frameCount + ' (' + w + 'x' + h + ')');
 
     canvas.width = w;
     canvas.height = h;
