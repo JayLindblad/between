@@ -164,6 +164,7 @@
     window.onerror = (msg, src, line) => debugLog('ERROR: ' + msg + ' (' + src.split('/').pop() + ':' + line + ')', 'error');
     window.onunhandledrejection = e => debugLog('PROMISE: ' + (e.reason?.message || e.reason), 'error');
     debugLog('libs: supabase=' + (typeof supabase !== 'undefined') + ' L=' + (typeof L !== 'undefined'));
+    debugLog('config: URL=' + (typeof SUPABASE_URL !== 'undefined') + ' KEY=' + (typeof SUPABASE_ANON_KEY !== 'undefined'));
   </script>
 
   <!-- Scripts — order matters: app.js depends on supabase + config, scanner.js depends on app.js (calls lookupISBN) -->
