@@ -10,7 +10,7 @@ if (!window._supabaseClient) {
   }
   window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
-const supabase = window._supabaseClient;
+var supabase = window._supabaseClient;
 // From here, bare 'supabase' resolves to the initialized client in both cases.
 
 // ── Helpers ──
