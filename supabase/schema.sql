@@ -4,14 +4,12 @@
 -- ── Tables ──────────────────────────────────────────────────────────────────
 
 create table books (
-  id             uuid primary key default gen_random_uuid(),
-  isbn           text not null unique,
+  isbn           text primary key,
   title          text not null,
   author         text not null,
   cover_url      text,
   release_note   text,
-  released_by    text,
-  created_at     timestamptz not null default now()
+  released_by    text
 );
 
 create table entries (
