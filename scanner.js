@@ -103,13 +103,22 @@ async function openCamera() {
 function startScanLoop(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let frameCount = 0;
+
+  debugLog('scan loop started');
 
   scanInterval = setInterval(async () => {
-    if (!scannerActive || !zxingReady || video.readyState < 2 || !readBarcodesFn) return;
+    if (!scannerActive || !zxingReady || video.readyState < 2 || !readBarcodesFn) {
+      if (frameCount === 0) debugLog('loop tick skipped: active=' + scannerActive + ' ready=' + zxingReady + ' vstate=' + video.readyState, 'warn');
+      return;
+    }
 
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) return;
+
+    frameCount++;
+    if (frameCount === 1 || frameCount === 10) debugLog('scanning frame ' + frameCount + ' (' + w + 'x' + h + ')');
 
     canvas.width = w;
     canvas.height = h;
@@ -128,13 +137,16 @@ function startScanLoop(video) {
 
       if (results && results.length > 0) {
         const raw = results[0].text;
+        debugLog('detected: "' + raw + '" fmt=' + results[0].format);
         const clean = raw.replace(/\D/g, '');
         if (clean.length === 13 && (clean.startsWith('978') || clean.startsWith('979'))) {
           onBarcodeDetected(clean);
+        } else {
+          debugLog('rejected: len=' + clean.length + ' prefix=' + clean.slice(0,3), 'warn');
         }
       }
     } catch(e) {
-      // Silent — try next frame
+      if (frameCount <= 3) debugLog('scan error: ' + e.message, 'error');
     }
   }, 300);
 }
