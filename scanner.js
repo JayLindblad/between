@@ -131,7 +131,7 @@ function startScanLoop(video) {
 
       const results = await readBarcodesFn(blob, {
         tryHarder: true,
-        formats: ['EAN13', 'EAN8', 'ISBN'],
+        formats: ['EAN-13', 'EAN-8'],
         maxNumberOfSymbols: 1
       });
 
