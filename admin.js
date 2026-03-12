@@ -116,10 +116,10 @@ async function loadStats() {
   // books with at least one entry
   const { data: activeData } = await db
     .from('entries')
-    .select('book_id')
+    .select('isbn')
     .limit(1000);
 
-  const activeCount = activeData ? new Set(activeData.map(e => e.book_id)).size : 0;
+  const activeCount = activeData ? new Set(activeData.map(e => e.isbn)).size : 0;
 
   document.getElementById('statBooks').textContent = bookCount ?? '—';
   document.getElementById('statEntries').textContent = entryCount ?? '—';
@@ -291,7 +291,7 @@ async function deleteBook(id, title) {
 async function loadEntries() {
   const { data, error } = await db
     .from('entries')
-    .select('id, location, message, found_at, created_at, books(title)')
+    .select('id, found_location, message, found_date, created_at, books(title)')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -310,9 +310,9 @@ async function loadEntries() {
   const rows = data.map(entry => `
     <tr>
       <td class="td-title" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
-      <td class="td-location">${escapeHtml(entry.location)}</td>
+      <td class="td-location">${escapeHtml(entry.found_location)}</td>
       <td class="td-message">${escapeHtml(entry.message || '—')}</td>
-      <td class="td-date">${formatDate(entry.found_at || entry.created_at)}</td>
+      <td class="td-date">${formatDate(entry.found_date || entry.created_at)}</td>
       <td class="td-actions">
         <button class="btn-action btn-delete" onclick="deleteEntry('${entry.id}')">Delete</button>
       </td>

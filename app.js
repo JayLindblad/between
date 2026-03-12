@@ -115,21 +115,27 @@ async function loadAndRenderCatalog() {
     Loading the library…
   </p>`;
 
-  const { data, error } = await supabase
-    .from('books')
-    .select('id, isbn, title, author, entries(count)')
-    .order('created_at', { ascending: true });
+  const [booksResult, entriesResult] = await Promise.all([
+    supabase.from('books').select('id, isbn, title, author').order('created_at', { ascending: true }),
+    supabase.from('entries').select('isbn')
+  ]);
 
-  if (error) {
+  if (booksResult.error) {
+    if (typeof debugLog === 'function') debugLog('catalog load error: ' + (booksResult.error.message || JSON.stringify(booksResult.error)), 'error');
     grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:var(--rust); padding:48px 0; font-style:italic;">
       Could not load the library. Please refresh.
     </p>`;
     return;
   }
 
-  books = data.map(b => ({
+  const countMap = {};
+  (entriesResult.data || []).forEach(e => {
+    countMap[e.isbn] = (countMap[e.isbn] || 0) + 1;
+  });
+
+  books = booksResult.data.map(b => ({
     ...b,
-    entryCount: b.entries[0]?.count ?? 0
+    entryCount: countMap[b.isbn] || 0
   }));
 
   if (!books.length) {
