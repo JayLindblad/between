@@ -1,5 +1,14 @@
 // ── Supabase client ──
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Use the client already created by config.js if it exists (avoids re-declaration
+// conflicts when config.js declares its own `const supabase = createClient(...)`).
+let db;
+try {
+  db = (typeof supabase !== 'undefined' && supabase && supabase.auth)
+    ? supabase
+    : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  console.error('[admin] Supabase init failed:', e);
+}
 
 // ── Helpers ──
 function escapeHtml(str) {
@@ -42,12 +51,17 @@ async function adminLogin() {
     return;
   }
 
+  if (!db) {
+    errorEl.textContent = 'Configuration error — check that config.js exists and Supabase credentials are correct.';
+    return;
+  }
+
   errorEl.textContent = '';
   btn.textContent = 'Signing in\u2026';
   btn.disabled = true;
 
   try {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await db.auth.signInWithPassword({ email, password });
     if (error) {
       errorEl.textContent = error.message;
     } else {
@@ -62,7 +76,7 @@ async function adminLogin() {
 }
 
 async function adminLogout() {
-  await supabase.auth.signOut();
+  await db.auth.signOut();
   showLoginScreen();
 }
 
@@ -83,7 +97,7 @@ document.getElementById('loginPassword').addEventListener('keydown', e => {
 });
 
 // ── Auth state — restore session on page reload ──
-supabase.auth.getSession().then(({ data: { session } }) => {
+db.auth.getSession().then(({ data: { session } }) => {
   if (session) showAdminPanel();
 });
 
@@ -95,12 +109,12 @@ async function loadAll() {
 // ── Stats ──
 async function loadStats() {
   const [{ count: bookCount }, { count: entryCount }] = await Promise.all([
-    supabase.from('books').select('*', { count: 'exact', head: true }),
-    supabase.from('entries').select('*', { count: 'exact', head: true })
+    db.from('books').select('*', { count: 'exact', head: true }),
+    db.from('entries').select('*', { count: 'exact', head: true })
   ]);
 
   // books with at least one entry
-  const { data: activeData } = await supabase
+  const { data: activeData } = await db
     .from('entries')
     .select('book_id')
     .limit(1000);
@@ -114,7 +128,7 @@ async function loadStats() {
 
 // ── Books ──
 async function loadBooks() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('books')
     .select('id, isbn, title, author, cover_url, release_note, released_by, created_at, entries(count)')
     .order('created_at', { ascending: true });
@@ -206,7 +220,7 @@ async function addBook() {
 
   errorEl.textContent = '';
 
-  const { error } = await supabase
+  const { error } = await db
     .from('books')
     .insert({ isbn, title, author, cover_url, release_note, released_by });
 
@@ -247,7 +261,7 @@ async function saveEditBook(id) {
 
   if (!title || !author) return;
 
-  const { error } = await supabase
+  const { error } = await db
     .from('books')
     .update({ title, author, cover_url })
     .eq('id', id);
@@ -263,7 +277,7 @@ async function saveEditBook(id) {
 async function deleteBook(id, title) {
   if (!confirm(`Delete "${title}" and all its entries? This cannot be undone.`)) return;
 
-  const { error } = await supabase.from('books').delete().eq('id', id);
+  const { error } = await db.from('books').delete().eq('id', id);
 
   if (error) {
     alert('Delete failed: ' + error.message);
@@ -275,7 +289,7 @@ async function deleteBook(id, title) {
 
 // ── Entries ──
 async function loadEntries() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('entries')
     .select('id, location, message, found_at, created_at, books(title)')
     .order('created_at', { ascending: false })
@@ -324,7 +338,7 @@ async function loadEntries() {
 async function deleteEntry(id) {
   if (!confirm('Delete this entry? This cannot be undone.')) return;
 
-  const { error } = await supabase.from('entries').delete().eq('id', id);
+  const { error } = await db.from('entries').delete().eq('id', id);
 
   if (error) {
     alert('Delete failed: ' + error.message);

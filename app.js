@@ -1,6 +1,17 @@
 // ── Supabase client ──
-// SUPABASE_URL and SUPABASE_ANON_KEY are defined in config.js
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// SUPABASE_URL and SUPABASE_ANON_KEY are defined in config.js.
+// If config.js already called createClient(), use that instance.
+// Otherwise create it here. We avoid re-declaring 'supabase' with const/let
+// because that throws "already declared" when config.js does it first.
+if (typeof supabase === 'undefined' || typeof supabase.from !== 'function') {
+  if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
+    // config.js didn't load or secrets aren't set — log clearly and stop
+    if (typeof debugLog === 'function') debugLog('FATAL: config.js missing or secrets not set', 'error');
+    throw new Error('Between Readers: SUPABASE_URL/KEY not defined. Check config.js or GitHub secrets.');
+  }
+  window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+// From here, bare 'supabase' resolves to the initialized client in both cases.
 
 // ── Helpers ──
 function escapeHtml(str) {
@@ -23,6 +34,78 @@ function normalizeISBN(raw) {
 // ── State ──
 let books = [];
 let currentBook = null;
+let journeyMap = null;
+let geocodeSession = 0;
+const geocodeCache = {};
+
+// ── Geocoding ──
+async function geocodeLocation(loc) {
+  if (geocodeCache[loc] !== undefined) return geocodeCache[loc];
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(loc) + '&format=json&limit=1',
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+    geocodeCache[loc] = result;
+    return result;
+  } catch {
+    geocodeCache[loc] = null;
+    return null;
+  }
+}
+
+async function renderJourneyMap(entries) {
+  const mapEl = document.getElementById('journeyMap');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  if (journeyMap) { journeyMap.remove(); journeyMap = null; }
+  mapEl.style.display = 'block';
+
+  const session = ++geocodeSession;
+  journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19
+  }).addTo(journeyMap);
+
+  const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const markers = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (geocodeSession !== session) return;
+    const entry = sorted[i];
+    if (!entry.location) continue;
+    if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
+    if (geocodeSession !== session) return;
+
+    const coords = await geocodeLocation(entry.location);
+    if (geocodeSession !== session) return;
+    if (!coords) continue;
+
+    const marker = L.circleMarker([coords.lat, coords.lng], {
+      radius: 7,
+      fillColor: '#8b3a2a',
+      color: '#f5f0e8',
+      weight: 2,
+      fillOpacity: 0.85
+    }).addTo(journeyMap);
+
+    const dateStr = entry.found_at ? formatDate(entry.found_at) : formatDate(entry.created_at);
+    marker.bindPopup(
+      `<strong>${escapeHtml(entry.location)}</strong><br><em>${dateStr}</em>` +
+      (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
+    );
+    markers.push(marker);
+  }
+
+  if (markers.length > 0) {
+    journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+  } else {
+    mapEl.style.display = 'none';
+  }
+}
 
 // ── Catalog ──
 async function loadAndRenderCatalog() {
@@ -201,6 +284,13 @@ function openModal() {
     `).join('');
   }
 
+  const mapEl = document.getElementById('journeyMap');
+  if (entries.length > 0) {
+    renderJourneyMap(entries);
+  } else if (mapEl) {
+    mapEl.style.display = 'none';
+  }
+
   resetEntryForm();
 
   document.getElementById('modalOverlay').classList.add('open');
@@ -236,6 +326,10 @@ function resetEntryForm() {
 }
 
 function closeModal() {
+  geocodeSession++; // cancel any in-progress geocoding
+  if (journeyMap) { journeyMap.remove(); journeyMap = null; }
+  const mapEl = document.getElementById('journeyMap');
+  if (mapEl) mapEl.style.display = 'none';
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }

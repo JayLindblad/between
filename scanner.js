@@ -39,6 +39,23 @@ async function openCamera() {
   status.className = 'camera-status';
   status.textContent = 'Starting camera…';
 
+  debugLog('protocol=' + location.protocol + ' mediaDevices=' + !!navigator.mediaDevices);
+
+  // Query permission state if available (won't trigger a prompt)
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'camera' }).then(p => debugLog('camera perm: ' + p.state)).catch(() => {});
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    closeCamera();
+    const input = document.getElementById('isbnInput');
+    input.focus();
+    input.placeholder = 'Camera not supported on this connection — type the ISBN here';
+    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    debugLog('mediaDevices unavailable — page likely served over HTTP', 'error');
+    return;
+  }
+
   try {
     // Start camera and ZXing WASM load in parallel
     const [stream] = await Promise.all([
@@ -64,11 +81,21 @@ async function openCamera() {
 
   } catch(err) {
     console.error('Camera error:', err);
-    status.className = 'camera-status error';
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      status.textContent = 'Camera permission denied — please type the ISBN instead';
+    const noCamera = err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError';
+    const denied  = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+
+    if (noCamera) {
+      // No camera hardware — close overlay and send user to ISBN input
+      closeCamera();
+      const input = document.getElementById('isbnInput');
+      input.focus();
+      input.placeholder = 'No camera found — type the ISBN here';
+      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
-      status.textContent = 'Camera unavailable — please type the ISBN below';
+      status.className = 'camera-status error';
+      status.textContent = denied
+        ? 'Camera permission denied — please type the ISBN instead'
+        : 'Camera unavailable — please type the ISBN below';
     }
   }
 }
@@ -76,13 +103,22 @@ async function openCamera() {
 function startScanLoop(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let frameCount = 0;
+
+  debugLog('scan loop started');
 
   scanInterval = setInterval(async () => {
-    if (!scannerActive || !zxingReady || video.readyState < 2 || !readBarcodesFn) return;
+    if (!scannerActive || !zxingReady || video.readyState < 2 || !readBarcodesFn) {
+      if (frameCount === 0) debugLog('loop tick skipped: active=' + scannerActive + ' ready=' + zxingReady + ' vstate=' + video.readyState, 'warn');
+      return;
+    }
 
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) return;
+
+    frameCount++;
+    if (frameCount === 1 || frameCount % 30 === 0) debugLog('scanning frame ' + frameCount + ' (' + w + 'x' + h + ')');
 
     canvas.width = w;
     canvas.height = h;
@@ -95,19 +131,22 @@ function startScanLoop(video) {
 
       const results = await readBarcodesFn(blob, {
         tryHarder: true,
-        formats: ['EAN13', 'EAN8', 'ISBN'],
+        formats: ['EAN-13', 'EAN-8'],
         maxNumberOfSymbols: 1
       });
 
       if (results && results.length > 0) {
         const raw = results[0].text;
+        debugLog('detected: "' + raw + '" fmt=' + results[0].format);
         const clean = raw.replace(/\D/g, '');
         if (clean.length === 13 && (clean.startsWith('978') || clean.startsWith('979'))) {
           onBarcodeDetected(clean);
+        } else {
+          debugLog('rejected: len=' + clean.length + ' prefix=' + clean.slice(0,3), 'warn');
         }
       }
     } catch(e) {
-      // Silent — try next frame
+      if (frameCount <= 3) debugLog('scan error: ' + e.message, 'error');
     }
   }, 300);
 }
@@ -122,11 +161,15 @@ function onBarcodeDetected(isbn) {
   reticle.style.outline = '2px solid var(--gold-light)';
   reticle.style.boxShadow = '0 0 24px rgba(212, 168, 67, 0.5)';
 
-  setTimeout(() => {
+  setTimeout(async () => {
     closeCamera();
     document.getElementById('isbnInput').value = isbn;
-    lookupISBN(); // defined in app.js
-    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await lookupISBN();
+    if (currentBook) {
+      openModal();
+    } else {
+      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }, 700);
 }
 

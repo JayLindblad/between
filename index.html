@@ -6,7 +6,9 @@
   <title>Between Readers</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="config.js"></script>
 </head>
 <body>
@@ -129,6 +131,7 @@
         </div>
       </div>
       <div class="modal-body">
+        <div id="journeyMap" class="journey-map"></div>
         <p class="journey-heading" id="journeyHeading">The Journey</p>
         <div id="journeyEntries"></div>
       </div>
@@ -136,9 +139,37 @@
     </div>
   </div>
 
+  <!-- DEBUG PANEL — must be before app.js/scanner.js to catch their load errors -->
+  <div id="debugPanel" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#1a1612;color:#d4a843;font-family:monospace;font-size:11px;padding:10px 12px;border-radius:4px;max-width:320px;max-height:220px;overflow-y:auto;opacity:0.95;pointer-events:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <strong>Debug</strong>
+      <button onclick="document.getElementById('debugPanel').remove()" style="background:none;border:none;color:#d4a843;cursor:pointer;font-size:14px;padding:0 0 0 8px;">✕</button>
+    </div>
+    <div id="debugLog"></div>
+  </div>
+  <script>
+    function debugLog(msg, type) {
+      const el = document.getElementById('debugLog');
+      if (!el) return;
+      const line = document.createElement('div');
+      line.style.color = type === 'error' ? '#e57373' : type === 'warn' ? '#ffb74d' : '#a5d6a7';
+      line.style.marginBottom = '2px';
+      line.style.wordBreak = 'break-all';
+      line.style.whiteSpace = 'pre-wrap';
+      line.textContent = (new Date().toLocaleTimeString()) + ' ' + msg;
+      el.appendChild(line);
+      const panel = document.getElementById('debugPanel');
+      if (panel) panel.scrollTop = panel.scrollHeight;
+    }
+    window.onerror = (msg, src, line) => debugLog('ERROR: ' + msg + ' (' + src.split('/').pop() + ':' + line + ')', 'error');
+    window.onunhandledrejection = e => debugLog('PROMISE: ' + (e.reason?.message || e.reason), 'error');
+    debugLog('libs: supabase=' + (typeof supabase !== 'undefined') + ' L=' + (typeof L !== 'undefined'));
+    debugLog('config: URL=' + (typeof SUPABASE_URL !== 'undefined') + ' KEY=' + (typeof SUPABASE_ANON_KEY !== 'undefined'));
+  </script>
+
   <!-- Scripts — order matters: app.js depends on supabase + config, scanner.js depends on app.js (calls lookupISBN) -->
-  <script src="app.js"></script>
-  <script src="scanner.js"></script>
+  <script src="app.js" onload="debugLog('app.js loaded')" onerror="debugLog('app.js FAILED TO LOAD','error')"></script>
+  <script src="scanner.js" onload="debugLog('scanner.js loaded')" onerror="debugLog('scanner.js FAILED TO LOAD','error')"></script>
 
 </body>
 </html>

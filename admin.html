@@ -111,6 +111,13 @@
       min-height: 20px;
       margin-bottom: 12px;
     }
+    #loginError:not(:empty) {
+      background: #fef2f2;
+      border: 1px solid var(--rust);
+      padding: 10px 14px;
+      font-style: normal;
+      border-radius: 1px;
+    }
 
     .btn-primary {
       width: 100%;
@@ -461,6 +468,18 @@
     </div>
   </div>
 
+  <!-- Catch any JS load/runtime errors and show them on the page -->
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('loginError');
+      if (el) el.textContent = 'JS error: ' + msg + (line ? ' (line ' + line + ')' : '');
+      return true;
+    };
+  </script>
   <script src="admin.js"></script>
+  <!-- If admin.js never ran, this stays visible -->
+  <script>
+    document.getElementById('loginError').removeAttribute('data-js-failed');
+  </script>
 </body>
 </html>
