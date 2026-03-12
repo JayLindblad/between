@@ -43,7 +43,11 @@ const entryMarkers = {}; // keyed by sorted entry index → L.circleMarker
 
 // ── Geocoding ──
 async function geocodeLocation(loc) {
-  if (geocodeCache[loc] !== undefined) return geocodeCache[loc];
+  if (geocodeCache[loc] !== undefined) {
+    console.log(`[map] geocode cache hit: "${loc}" →`, geocodeCache[loc]);
+    return geocodeCache[loc];
+  }
+  console.log(`[map] geocoding: "${loc}"`);
   try {
     const res = await fetch(
       'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(loc) + '&format=json&limit=1',
@@ -52,8 +56,11 @@ async function geocodeLocation(loc) {
     const data = await res.json();
     const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
     geocodeCache[loc] = result;
+    if (result) console.log(`[map] geocode ok: "${loc}" →`, result);
+    else console.warn(`[map] geocode no result for: "${loc}"`);
     return result;
-  } catch {
+  } catch (err) {
+    console.error(`[map] geocode failed for "${loc}":`, err);
     geocodeCache[loc] = null;
     return null;
   }
@@ -89,13 +96,25 @@ function buildArcPath(latlng1, latlng2, segIndex) {
 
 async function renderJourneyMap(entries) {
   const mapEl = document.getElementById('journeyMap');
-  if (!mapEl || typeof L === 'undefined') return;
+  if (!mapEl) { console.error('[map] #journeyMap element not found'); return; }
+  if (typeof L === 'undefined') { console.error('[map] Leaflet (L) not loaded'); return; }
+
+  const rect = mapEl.getBoundingClientRect();
+  console.log(`[map] container size: ${rect.width}×${rect.height}, display: ${getComputedStyle(mapEl).display}`);
 
   if (journeyMap) { journeyMap.remove(); journeyMap = null; }
   mapEl.style.display = 'block';
 
   const session = ++geocodeSession;
-  journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+  console.log(`[map] init session=${session}, entries=${entries.length}`);
+
+  try {
+    journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+  } catch (err) {
+    console.error('[map] L.map() threw:', err);
+    return;
+  }
+
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 19
@@ -106,15 +125,15 @@ async function renderJourneyMap(entries) {
   const markers = [];
 
   for (let i = 0; i < sorted.length; i++) {
-    if (geocodeSession !== session) return;
+    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
-    if (!entry.found_location) continue;
+    if (!entry.found_location) { console.log(`[map] entry ${i} has no location, skipping`); continue; }
     if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-    if (geocodeSession !== session) return;
+    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
 
     const coords = await geocodeLocation(entry.found_location);
     if (geocodeSession !== session) return;
-    if (!coords) continue;
+    if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
 
     const marker = L.circleMarker([coords.lat, coords.lng], {
       radius: 7,
@@ -156,9 +175,16 @@ async function renderJourneyMap(entries) {
     }).addTo(journeyMap).bringToBack();
   }
 
+  console.log(`[map] placed ${markers.length} marker(s)`);
   if (markers.length > 0) {
-    journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+    try {
+      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+      console.log('[map] fitBounds ok');
+    } catch (err) {
+      console.error('[map] fitBounds threw:', err);
+    }
   } else {
+    console.warn('[map] no markers placed — hiding map');
     mapEl.style.display = 'none';
   }
 }
