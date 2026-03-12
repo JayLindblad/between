@@ -28,6 +28,64 @@ function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
 
+// ── ISBN metadata auto-fill ──
+async function autoFillIsbn() {
+  const isbn = normalizeISBN(document.getElementById('newIsbn').value.trim());
+  const statusEl = document.getElementById('isbnLookupStatus');
+
+  if (!/^\d{13}$/.test(isbn)) {
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.style.color = 'var(--ink-faint)';
+  statusEl.textContent = 'Looking up…';
+
+  // ── Open Library ──
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+    );
+    const data = await res.json();
+    const book = data[`ISBN:${isbn}`];
+
+    if (book) {
+      if (book.title) document.getElementById('newTitle').value = book.title;
+      if (book.authors?.length)
+        document.getElementById('newAuthor').value = book.authors.map(a => a.name).join(', ');
+      const cover = book.cover?.large || book.cover?.medium || book.cover?.small || '';
+      if (cover) document.getElementById('newCoverUrl').value = cover;
+      statusEl.style.color = 'var(--gold)';
+      statusEl.textContent = '✓ Filled from Open Library';
+      return;
+    }
+  } catch (_) { /* fall through */ }
+
+  // ── Google Books fallback ──
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`
+    );
+    const data = await res.json();
+    const vol = data.items?.[0]?.volumeInfo;
+
+    if (vol) {
+      if (vol.title) document.getElementById('newTitle').value = vol.title;
+      if (vol.authors?.length)
+        document.getElementById('newAuthor').value = vol.authors.join(', ');
+      if (vol.imageLinks?.thumbnail)
+        document.getElementById('newCoverUrl').value =
+          vol.imageLinks.thumbnail.replace('http://', 'https://').replace('&zoom=1', '&zoom=0');
+      statusEl.style.color = 'var(--gold)';
+      statusEl.textContent = '✓ Filled from Google Books';
+      return;
+    }
+  } catch (_) { /* fall through */ }
+
+  statusEl.style.color = 'var(--ink-faint)';
+  statusEl.textContent = 'Not found in public databases — enter details manually';
+}
+
 // ── Auth ──
 function showLoginScreen() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -207,6 +265,7 @@ function clearAddBookForm() {
     document.getElementById(id).value = '';
   });
   document.getElementById('addBookError').textContent = '';
+  document.getElementById('isbnLookupStatus').textContent = '';
 }
 
 async function addBook() {

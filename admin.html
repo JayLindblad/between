@@ -422,9 +422,10 @@
 
         <!-- Add book form -->
         <div id="addBookForm">
-          <div class="field">
+          <div class="field full">
             <label>ISBN</label>
-            <input type="text" id="newIsbn" placeholder="9780743273565" maxlength="13" />
+            <input type="text" id="newIsbn" placeholder="9780743273565" maxlength="17" oninput="autoFillIsbn()" />
+            <span id="isbnLookupStatus" style="display:block; font-size:12px; font-style:italic; margin-top:5px; min-height:16px;"></span>
           </div>
           <div class="field">
             <label>Title</label>
@@ -434,8 +435,8 @@
             <label>Author</label>
             <input type="text" id="newAuthor" placeholder="F. Scott Fitzgerald" />
           </div>
-          <div class="field">
-            <label>Cover URL <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+          <div class="field full">
+            <label>Cover URL <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional — auto-filled from lookup)</span></label>
             <input type="url" id="newCoverUrl" placeholder="https://…" />
           </div>
           <div class="field full">
