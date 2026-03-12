@@ -415,6 +415,7 @@ function openModal() {
           </div>
           ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}
           <p class="entry-message">${escapeHtml(entry.message || '')}</p>
+          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(entry.photo_url)}" alt="" loading="lazy">` : ''}
         </div>
       </div>
     `).join('');
@@ -458,15 +459,25 @@ function resetEntryForm() {
     </div>
     <div class="form-field">
       <label class="form-label">A photo (optional)</label>
-      <div class="photo-upload" onclick="this.querySelector('input').click()">
-        <p class="photo-upload-text">📷 &nbsp; Tap to add a photo</p>
-        <input type="file" accept="image/*" style="display:none" />
+      <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
+        <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
+        <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
     <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
   `;
   initLocationAutocomplete();
+
+  // Show filename when photo is selected
+  const fileInput = document.getElementById('photoFileInput');
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const label = document.getElementById('photoUploadText');
+      if (file && label) label.textContent = '✓ ' + file.name;
+    });
+  }
 }
 
 // ── Location autocomplete ──
@@ -658,6 +669,24 @@ async function submitEntry() {
   btn.textContent = 'Leaving your mark…';
   btn.disabled = true;
 
+  // Upload photo if one was selected
+  let photo_url = null;
+  const fileInput = document.getElementById('photoFileInput');
+  const file = fileInput?.files?.[0] || null;
+  if (file) {
+    const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+    const path = `${currentBook.isbn}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('entry-photos')
+      .upload(path, file, { contentType: file.type });
+    if (uploadError) {
+      if (typeof debugLog === 'function') debugLog('photo upload error: ' + uploadError.message, 'warn');
+    } else {
+      const { data: urlData } = supabase.storage.from('entry-photos').getPublicUrl(path);
+      photo_url = urlData.publicUrl;
+    }
+  }
+
   const { error } = await supabase
     .from('entries')
     .insert({
@@ -665,6 +694,7 @@ async function submitEntry() {
       found_location: locationPlace,
       location_description: locationDesc || null,
       message: message || null,
+      photo_url,
       found_date: foundAt
     });
 

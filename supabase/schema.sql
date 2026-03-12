@@ -19,12 +19,14 @@ create table entries (
   found_location       text not null,        -- geocodable place name (city/region) for map pins
   location_description text,                 -- optional free-text spot description ("on a park bench…")
   message              text,
+  photo_url            text,                 -- public URL of uploaded photo in Supabase Storage
   found_date           date,
   created_at           timestamptz not null default now()
 );
 
--- Migration: if the table already exists, add the new column with:
+-- Migration: if the table already exists, add new columns with:
 -- alter table entries add column if not exists location_description text;
+-- alter table entries add column if not exists photo_url text;
 -- alter table books   add column if not exists passcode text;
 
 create index entries_isbn_idx on entries(isbn);
@@ -69,3 +71,24 @@ create policy "authenticated can delete entries"
   on entries for delete
   to authenticated
   using (true);
+
+-- ── Storage ───────────────────────────────────────────────────────────────────
+-- Public bucket for entry photos (visitors upload; anyone can view)
+
+insert into storage.buckets (id, name, public)
+values ('entry-photos', 'entry-photos', true)
+on conflict do nothing;
+
+create policy "anyone can upload entry photos"
+  on storage.objects for insert
+  to anon, authenticated
+  with check (bucket_id = 'entry-photos');
+
+create policy "entry photos are publicly readable"
+  on storage.objects for select
+  using (bucket_id = 'entry-photos');
+
+create policy "authenticated can delete entry photos"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'entry-photos');

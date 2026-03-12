@@ -545,6 +545,7 @@ h1 em {
 }
 
 .modal-release-note {
+  margin-top: 28px;
   background: white;
   border-left: 3px solid var(--gold);
   padding: 16px 20px;
