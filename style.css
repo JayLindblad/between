@@ -713,6 +713,8 @@ h1 em {
   flex-shrink: 0;
 }
 
+.entry-number-stop { display: none; }
+
 .entry-header {
   display: flex;
   flex-direction: column;
@@ -1152,15 +1154,30 @@ footer {
   .journey-entry {
     grid-template-columns: 1fr;
     gap: 8px 0;
+    padding-bottom: 28px;
+    margin-bottom: 0;
+  }
+  .journey-entry:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
   }
   .journey-entry:not(:last-child)::before {
     display: none;
   }
   .entry-number {
-    width: 36px;
-    height: 36px;
-    font-size: 13px;
+    width: 100%;
+    height: auto;
+    padding: 6px 0;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    justify-content: flex-start;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--ink-faint);
   }
+  .entry-number-stop { display: inline; }
 }
 
 @keyframes journeyDash {
