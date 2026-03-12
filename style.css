@@ -849,6 +849,8 @@ h1 em {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid var(--border);
   background: var(--cream);
   padding: 11px 14px;
