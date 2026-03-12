@@ -9,7 +9,8 @@ create table books (
   author         text not null,
   cover_url      text,
   release_note   text,
-  released_by    text
+  released_by    text,
+  passcode       text   -- 6-digit code written in pen inside the book; required to view journey
 );
 
 create table entries (
@@ -24,6 +25,7 @@ create table entries (
 
 -- Migration: if the table already exists, add the new column with:
 -- alter table entries add column if not exists location_description text;
+-- alter table books   add column if not exists passcode text;
 
 create index entries_isbn_idx on entries(isbn);
 

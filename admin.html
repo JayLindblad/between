@@ -446,6 +446,10 @@
             <label>Released by <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
             <input type="text" id="newReleasedBy" placeholder="Jay" />
           </div>
+          <div class="field">
+            <label>Passcode <span style="font-style:italic; text-transform:none; letter-spacing:0;">(6 digits — write this inside the book)</span></label>
+            <input type="text" id="newPasscode" placeholder="e.g. 481623" maxlength="6" inputmode="numeric" />
+          </div>
           <div class="form-actions full">
             <button class="btn-primary" style="width:auto; padding:10px 28px;" onclick="addBook()">Add Book</button>
             <button class="btn-secondary" onclick="toggleAddBookForm()">Cancel</button>

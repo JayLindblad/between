@@ -59,7 +59,7 @@
             <span class="journey-count" id="resultStops">— stops along the way</span>
           </div>
         </div>
-        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openModal()">
+        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openPasscodeModal()">
           Read Its Journey →
         </button>
       </div>
@@ -119,6 +119,19 @@
     </div>
     <p class="camera-status" id="cameraStatus">Align barcode within the frame</p>
     <button class="camera-close" onclick="closeCamera()">Cancel</button>
+  </div>
+
+  <!-- PASSCODE MODAL -->
+  <div class="passcode-overlay" id="passcodeOverlay" onclick="handlePasscodeOverlayClick(event)">
+    <div class="passcode-modal">
+      <button class="modal-close" onclick="closePasscodeModal()">✕</button>
+      <p class="passcode-eyebrow">Between Readers</p>
+      <h3 class="passcode-book-title" id="passcodeBookTitle">—</h3>
+      <p class="passcode-prompt">Enter the 6-digit passcode written inside the cover to read this book's journey.</p>
+      <input class="passcode-input" id="passcodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="off" />
+      <p class="passcode-error" id="passcodeError"></p>
+      <button class="passcode-btn" onclick="verifyPasscode()">Unlock Journey</button>
+    </div>
   </div>
 
   <!-- JOURNEY MODAL -->

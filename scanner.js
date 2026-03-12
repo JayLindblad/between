@@ -165,8 +165,9 @@ function onBarcodeDetected(isbn) {
     closeCamera();
     await lookupISBN(isbn);
     if (currentBook) {
-      openModal();
+      openPasscodeModal();
     } else {
+      showNotFoundResult();
       document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, 700);

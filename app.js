@@ -334,10 +334,12 @@ async function lookupISBN(isbnDirect) {
     resultEl.classList.add('visible');
   } else {
     currentBook = null;
-    document.getElementById('resultTitle').textContent = "Not in our library yet";
-    document.getElementById('resultAuthor').textContent = "This book hasn't been registered with Between Readers. If you found a sticker on it, check back soon.";
+    document.getElementById('resultTitle').textContent = "Not part of Between Readers";
+    document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
     document.getElementById('resultStops').textContent = "";
     document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('resultCover').style.display = 'none';
+    document.getElementById('resultCoverPlaceholder').style.display = 'flex';
     resultEl.classList.add('visible');
   }
 }
@@ -567,6 +569,61 @@ function updateActiveSuggestion(items) {
   items.forEach((item, i) => item.classList.toggle('active', i === autocompleteActive));
 }
 
+// ── Passcode modal ──
+function openPasscodeModal() {
+  if (!currentBook) return;
+  // If no passcode is set on this book, open the journey directly
+  if (!currentBook.passcode) {
+    openModal();
+    return;
+  }
+  document.getElementById('passcodeBookTitle').textContent = currentBook.title;
+  document.getElementById('passcodeInput').value = '';
+  document.getElementById('passcodeError').textContent = '';
+  document.getElementById('passcodeOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('passcodeInput').focus(), 50);
+}
+
+function closePasscodeModal() {
+  document.getElementById('passcodeOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handlePasscodeOverlayClick(e) {
+  if (e.target === document.getElementById('passcodeOverlay')) closePasscodeModal();
+}
+
+function verifyPasscode() {
+  const input = document.getElementById('passcodeInput').value.trim();
+  const errorEl = document.getElementById('passcodeError');
+
+  if (!input) {
+    errorEl.textContent = 'Please enter the passcode.';
+    return;
+  }
+
+  if (input !== String(currentBook.passcode)) {
+    errorEl.textContent = 'Incorrect passcode. Check the inside cover of the book.';
+    document.getElementById('passcodeInput').select();
+    return;
+  }
+
+  closePasscodeModal();
+  openModal();
+}
+
+// Helper called by scanner.js when a scanned ISBN is not in the database
+function showNotFoundResult() {
+  document.getElementById('resultTitle').textContent = "Not part of Between Readers";
+  document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
+  document.getElementById('resultStops').textContent = '';
+  document.getElementById('viewJourneyBtn').style.display = 'none';
+  document.getElementById('resultCover').style.display = 'none';
+  document.getElementById('resultCoverPlaceholder').style.display = 'flex';
+  document.getElementById('bookResult').classList.add('visible');
+}
+
 function closeModal() {
   geocodeSession++; // cancel any in-progress geocoding
   if (journeyMap) { journeyMap.remove(); journeyMap = null; }
@@ -633,6 +690,11 @@ async function submitEntry() {
 
   setTimeout(() => closeModal(), 2500);
 }
+
+// Enter key on passcode input
+document.getElementById('passcodeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') verifyPasscode();
+});
 
 // ── Init ──
 loadAndRenderCatalog();

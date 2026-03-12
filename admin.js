@@ -129,7 +129,7 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by'),
+    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode'),
     db.from('entries').select('isbn')
   ]);
 
@@ -160,6 +160,7 @@ async function loadBooks() {
         <td class="td-title">${escapeHtml(book.title)}</td>
         <td class="td-author">${escapeHtml(book.author)}</td>
         <td class="td-isbn">${safeIsbn}</td>
+        <td class="td-isbn" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
         <td class="td-count">${count}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
@@ -176,6 +177,7 @@ async function loadBooks() {
           <th>Title</th>
           <th>Author</th>
           <th>ISBN</th>
+          <th style="text-align:center;">Passcode</th>
           <th style="text-align:center;">Entries</th>
           <th></th>
         </tr>
@@ -199,7 +201,7 @@ function toggleAddBookForm() {
 }
 
 function clearAddBookForm() {
-  ['newIsbn','newTitle','newAuthor','newCoverUrl','newReleaseNote','newReleasedBy'].forEach(id => {
+  ['newIsbn','newTitle','newAuthor','newCoverUrl','newReleaseNote','newReleasedBy','newPasscode'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('addBookError').textContent = '';
@@ -212,6 +214,7 @@ async function addBook() {
   const cover_url = document.getElementById('newCoverUrl').value.trim() || null;
   const release_note = document.getElementById('newReleaseNote').value.trim() || null;
   const released_by = document.getElementById('newReleasedBy').value.trim() || null;
+  const passcode = document.getElementById('newPasscode').value.trim() || null;
   const errorEl = document.getElementById('addBookError');
 
   if (!isbn || !title || !author) {
@@ -224,11 +227,16 @@ async function addBook() {
     return;
   }
 
+  if (passcode && !/^\d{1,6}$/.test(passcode)) {
+    errorEl.textContent = 'Passcode must be up to 6 digits.';
+    return;
+  }
+
   errorEl.textContent = '';
 
   const { error } = await db
     .from('books')
-    .insert({ isbn, title, author, cover_url, release_note, released_by });
+    .insert({ isbn, title, author, cover_url, release_note, released_by, passcode });
 
   if (error) {
     errorEl.textContent = error.message;
@@ -250,6 +258,9 @@ function startEditBook(isbn) {
     <td><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
     <td><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
     <td class="td-isbn">${safeIsbn}</td>
+    <td>
+      <input id="edit-passcode-${safeIsbn}" value="${escapeHtml(book.passcode || '')}" placeholder="6 digits" maxlength="6" inputmode="numeric" style="text-align:center; font-size:14px; letter-spacing:0.15em; width:80px;" />
+    </td>
     <td class="td-count">—</td>
     <td>
       <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
@@ -266,12 +277,13 @@ async function saveEditBook(isbn) {
   const title = document.getElementById(`edit-title-${safeIsbn}`).value.trim();
   const author = document.getElementById(`edit-author-${safeIsbn}`).value.trim();
   const cover_url = document.getElementById(`edit-cover-${safeIsbn}`).value.trim() || null;
+  const passcode = document.getElementById(`edit-passcode-${safeIsbn}`).value.trim() || null;
 
   if (!title || !author) return;
 
   const { error } = await db
     .from('books')
-    .update({ title, author, cover_url })
+    .update({ title, author, cover_url, passcode })
     .eq('isbn', isbn);
 
   if (error) {
