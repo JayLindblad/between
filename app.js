@@ -110,6 +110,8 @@ async function renderJourneyMap(entries) {
 
   try {
     journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+    journeyMap.invalidateSize(); // force re-measure in case container was display:none
+    console.log('[map] L.map() ok, size after invalidate:', journeyMap.getSize());
   } catch (err) {
     console.error('[map] L.map() threw:', err);
     return;
@@ -166,13 +168,20 @@ async function renderJourneyMap(entries) {
       if (i === 0) allPoints.push(...seg);
       else allPoints.push(...seg.slice(1));
     }
-    L.polyline(allPoints, {
+    const polyline = L.polyline(allPoints, {
       color: '#8b3a2a',
       weight: 2,
       opacity: 0.75,
       dashArray: '5 9',
       className: 'journey-path'
-    }).addTo(journeyMap).bringToBack();
+    }).addTo(journeyMap);
+    // _path may be absent if the SVG renderer had zero dimensions at init time
+    if (polyline._path) {
+      polyline.bringToBack();
+    } else {
+      console.warn('[map] polyline._path not yet in DOM — skipping bringToBack, will retry after invalidateSize');
+      journeyMap.once('moveend', () => { try { polyline.bringToBack(); } catch(e) {} });
+    }
   }
 
   console.log(`[map] placed ${markers.length} marker(s)`);
