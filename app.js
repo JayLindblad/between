@@ -116,7 +116,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('isbn, title, author').order('created_at', { ascending: true }),
+    supabase.from('books').select('isbn, title, author'),
     supabase.from('entries').select('isbn')
   ]);
 

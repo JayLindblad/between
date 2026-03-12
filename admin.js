@@ -129,7 +129,7 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, created_at').order('created_at', { ascending: true }),
+    db.from('books').select('isbn, title, author, cover_url, release_note, released_by'),
     db.from('entries').select('isbn')
   ]);
 
@@ -161,7 +161,6 @@ async function loadBooks() {
         <td class="td-author">${escapeHtml(book.author)}</td>
         <td class="td-isbn">${safeIsbn}</td>
         <td class="td-count">${count}</td>
-        <td class="td-date">${formatDate(book.created_at)}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
           <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
@@ -178,7 +177,6 @@ async function loadBooks() {
           <th>Author</th>
           <th>ISBN</th>
           <th style="text-align:center;">Entries</th>
-          <th>Added</th>
           <th></th>
         </tr>
       </thead>
