@@ -373,7 +373,7 @@ async function submitEntry() {
   const { error } = await supabase
     .from('entries')
     .insert({
-      book_id: currentBook.id,
+      isbn: currentBook.isbn,
       found_location: location,
       message: message || null,
       found_date: foundAt
