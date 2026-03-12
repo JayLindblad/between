@@ -136,7 +136,9 @@ async function loadBooks() {
   const container = document.getElementById('booksTableContainer');
 
   if (booksResult.error) {
-    container.innerHTML = `<p class="empty-state">Failed to load books.</p>`;
+    const msg = booksResult.error.message || booksResult.error.code || JSON.stringify(booksResult.error);
+    if (typeof debugLog === 'function') debugLog('loadBooks error: ' + msg, 'error');
+    container.innerHTML = `<p class="empty-state">Failed to load books: ${msg}</p>`;
     return;
   }
 
