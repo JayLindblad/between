@@ -76,11 +76,11 @@ async function renderJourneyMap(entries) {
   for (let i = 0; i < sorted.length; i++) {
     if (geocodeSession !== session) return;
     const entry = sorted[i];
-    if (!entry.location) continue;
+    if (!entry.found_location) continue;
     if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
     if (geocodeSession !== session) return;
 
-    const coords = await geocodeLocation(entry.location);
+    const coords = await geocodeLocation(entry.found_location);
     if (geocodeSession !== session) return;
     if (!coords) continue;
 
@@ -94,7 +94,7 @@ async function renderJourneyMap(entries) {
 
     const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
-      `<strong>${escapeHtml(entry.location)}</strong><br><em>${dateStr}</em>` +
+      `<strong>${escapeHtml(entry.found_location)}</strong><br><em>${dateStr}</em>` +
       (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
     );
     markers.push(marker);
@@ -287,7 +287,7 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
-            <span class="entry-location">${escapeHtml(entry.location)}</span>
+            <span class="entry-location">${escapeHtml(entry.found_location)}</span>
             <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
           </div>
           <p class="entry-message">${escapeHtml(entry.message || '')}</p>
@@ -374,7 +374,7 @@ async function submitEntry() {
     .from('entries')
     .insert({
       book_id: currentBook.id,
-      location,
+      found_location: location,
       message: message || null,
       found_date: foundAt
     });

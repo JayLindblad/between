@@ -17,7 +17,7 @@ create table books (
 create table entries (
   id          uuid primary key default gen_random_uuid(),
   book_id     uuid not null references books(id) on delete cascade,
-  location    text not null,
+  found_location  text not null,
   message     text,
   found_date  date,
   created_at  timestamptz not null default now()
