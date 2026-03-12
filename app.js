@@ -116,7 +116,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('id, isbn, title, author').order('created_at', { ascending: true }),
+    supabase.from('books').select('isbn, title, author').order('created_at', { ascending: true }),
     supabase.from('entries').select('isbn')
   ]);
 
@@ -146,7 +146,7 @@ async function loadAndRenderCatalog() {
   }
 
   grid.innerHTML = books.map((book, i) => `
-    <div class="book-card" onclick="openBookDirect('${book.id}')">
+    <div class="book-card" onclick="openBookDirect('${book.isbn}')">
       <p class="book-card-number">No. ${String(i + 1).padStart(2, '0')}</p>
       <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
       <p class="book-card-author">${escapeHtml(book.author)}</p>
@@ -234,13 +234,11 @@ document.getElementById('isbnInput').addEventListener('keydown', e => {
 });
 
 // ── Open modal from catalog (ISBN-gated) ──
-async function openBookDirect(id) {
-  const isbn = prompt("Enter the ISBN from the back of the book to read its journey:");
-  if (!isbn) return;
+async function openBookDirect(bookIsbn) {
+  const entered = prompt("Enter the ISBN from the back of the book to read its journey:");
+  if (!entered) return;
 
-  const cleanIsbn = normalizeISBN(isbn);
-  const cached = books.find(b => b.id === id);
-  if (!cached || normalizeISBN(cached.isbn) !== cleanIsbn) {
+  if (normalizeISBN(entered) !== normalizeISBN(bookIsbn)) {
     alert("That ISBN doesn't match this book.");
     return;
   }
@@ -248,7 +246,7 @@ async function openBookDirect(id) {
   const { data, error } = await supabase
     .from('books')
     .select('*, entries(*)')
-    .eq('id', id)
+    .eq('isbn', bookIsbn)
     .single();
 
   if (error || !data) {

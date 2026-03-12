@@ -128,35 +128,43 @@ async function loadStats() {
 
 // ── Books ──
 async function loadBooks() {
-  const { data, error } = await db
-    .from('books')
-    .select('id, isbn, title, author, cover_url, release_note, released_by, created_at, entries(count)')
-    .order('created_at', { ascending: true });
+  const [booksResult, entriesResult] = await Promise.all([
+    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, created_at').order('created_at', { ascending: true }),
+    db.from('entries').select('isbn')
+  ]);
 
   const container = document.getElementById('booksTableContainer');
 
-  if (error) {
+  if (booksResult.error) {
     container.innerHTML = `<p class="empty-state">Failed to load books.</p>`;
     return;
   }
 
-  if (!data || !data.length) {
+  const data = booksResult.data || [];
+
+  if (!data.length) {
     container.innerHTML = `<p class="empty-state">No books yet. Add the first one above.</p>`;
     return;
   }
 
+  const countMap = {};
+  (entriesResult.data || []).forEach(e => {
+    countMap[e.isbn] = (countMap[e.isbn] || 0) + 1;
+  });
+
   const rows = data.map(book => {
-    const count = book.entries?.[0]?.count ?? 0;
+    const count = countMap[book.isbn] || 0;
+    const safeIsbn = escapeHtml(book.isbn);
     return `
-      <tr id="book-row-${book.id}">
+      <tr id="book-row-${safeIsbn}">
         <td class="td-title">${escapeHtml(book.title)}</td>
         <td class="td-author">${escapeHtml(book.author)}</td>
-        <td class="td-isbn">${escapeHtml(book.isbn)}</td>
+        <td class="td-isbn">${safeIsbn}</td>
         <td class="td-count">${count}</td>
         <td class="td-date">${formatDate(book.created_at)}</td>
         <td class="td-actions">
-          <button class="btn-action btn-edit" onclick="startEditBook('${book.id}')">Edit</button>
-          <button class="btn-action btn-delete" onclick="deleteBook('${book.id}', '${escapeHtml(book.title)}')">Delete</button>
+          <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
+          <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
         </td>
       </tr>
     `;
@@ -233,38 +241,40 @@ async function addBook() {
   await loadAll();
 }
 
-function startEditBook(id) {
-  const book = window._booksCache?.find(b => b.id === id);
+function startEditBook(isbn) {
+  const book = window._booksCache?.find(b => b.isbn === isbn);
   if (!book) return;
 
-  const row = document.getElementById(`book-row-${id}`);
+  const safeIsbn = escapeHtml(isbn);
+  const row = document.getElementById(`book-row-${safeIsbn}`);
   row.className = 'edit-row';
   row.innerHTML = `
-    <td><input id="edit-title-${id}" value="${escapeHtml(book.title)}" /></td>
-    <td><input id="edit-author-${id}" value="${escapeHtml(book.author)}" /></td>
-    <td class="td-isbn">${escapeHtml(book.isbn)}</td>
-    <td class="td-count">${book.entries?.[0]?.count ?? 0}</td>
+    <td><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
+    <td><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
+    <td class="td-isbn">${safeIsbn}</td>
+    <td class="td-count">—</td>
     <td>
-      <input id="edit-cover-${id}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
+      <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
     </td>
     <td class="td-actions">
-      <button class="btn-action btn-edit" onclick="saveEditBook('${id}')">Save</button>
+      <button class="btn-action btn-edit" onclick="saveEditBook('${safeIsbn}')">Save</button>
       <button class="btn-action btn-delete" onclick="loadBooks()">Cancel</button>
     </td>
   `;
 }
 
-async function saveEditBook(id) {
-  const title = document.getElementById(`edit-title-${id}`).value.trim();
-  const author = document.getElementById(`edit-author-${id}`).value.trim();
-  const cover_url = document.getElementById(`edit-cover-${id}`).value.trim() || null;
+async function saveEditBook(isbn) {
+  const safeIsbn = escapeHtml(isbn);
+  const title = document.getElementById(`edit-title-${safeIsbn}`).value.trim();
+  const author = document.getElementById(`edit-author-${safeIsbn}`).value.trim();
+  const cover_url = document.getElementById(`edit-cover-${safeIsbn}`).value.trim() || null;
 
   if (!title || !author) return;
 
   const { error } = await db
     .from('books')
     .update({ title, author, cover_url })
-    .eq('id', id);
+    .eq('isbn', isbn);
 
   if (error) {
     alert('Save failed: ' + error.message);
@@ -274,10 +284,10 @@ async function saveEditBook(id) {
   await loadBooks();
 }
 
-async function deleteBook(id, title) {
+async function deleteBook(isbn, title) {
   if (!confirm(`Delete "${title}" and all its entries? This cannot be undone.`)) return;
 
-  const { error } = await db.from('books').delete().eq('id', id);
+  const { error } = await db.from('books').delete().eq('isbn', isbn);
 
   if (error) {
     alert('Delete failed: ' + error.message);
