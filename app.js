@@ -323,9 +323,9 @@ function resetEntryForm() {
   section.innerHTML = `
     <p class="add-entry-title">Add your chapter</p>
     <div class="form-field">
-      <label class="form-label">City or place <span class="form-label-hint">— for the map pin</span></label>
+      <label class="form-label">City</label>
       <div class="location-autocomplete-wrapper">
-        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY · London…" autocomplete="off" />
+        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY" autocomplete="off" />
       </div>
     </div>
     <div class="form-field">
