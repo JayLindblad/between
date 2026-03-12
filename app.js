@@ -96,10 +96,8 @@ async function renderJourneyMap(entries) {
 
     const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
-      `<strong>${escapeHtml(entry.found_location)}</strong>` +
-      (entry.location_description ? `<br><em>${escapeHtml(entry.location_description)}</em>` : '') +
-      `<br><em>${dateStr}</em>` +
-      (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
+      `<span class="map-popup-place">${escapeHtml(entry.found_location)}</span>` +
+      `<span class="map-popup-date">${dateStr}</span>`
     );
     markers.push(marker);
   }
