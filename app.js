@@ -160,10 +160,22 @@ async function loadAndRenderCatalog() {
 }
 
 // ── ISBN lookup ──
-async function lookupISBN() {
-  const raw = document.getElementById('isbnInput').value.trim();
-  const isbn = normalizeISBN(raw);
+async function lookupISBN(isbnDirect) {
+  const isbn = isbnDirect
+    ? normalizeISBN(isbnDirect)
+    : normalizeISBN(document.getElementById('isbnInput').value.trim());
   if (!isbn) return;
+
+  // When called directly (e.g. from scanner), skip search-field UI entirely
+  if (isbnDirect) {
+    const { data, error } = await supabase
+      .from('books')
+      .select('*, entries(*)')
+      .eq('isbn', isbn)
+      .maybeSingle();
+    currentBook = (!error && data) ? data : null;
+    return;
+  }
 
   const btn = document.querySelector('.isbn-btn');
   const resultEl = document.getElementById('bookResult');

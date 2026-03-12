@@ -163,8 +163,7 @@ function onBarcodeDetected(isbn) {
 
   setTimeout(async () => {
     closeCamera();
-    document.getElementById('isbnInput').value = isbn;
-    await lookupISBN();
+    await lookupISBN(isbn);
     if (currentBook) {
       openModal();
     } else {
