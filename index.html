@@ -143,5 +143,37 @@
   <script src="app.js"></script>
   <script src="scanner.js"></script>
 
+  <!-- DEBUG PANEL — remove once scanner is confirmed working -->
+  <div id="debugPanel" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#1a1612;color:#d4a843;font-family:monospace;font-size:11px;padding:10px 12px;border-radius:4px;max-width:320px;max-height:220px;overflow-y:auto;opacity:0.95;pointer-events:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <strong>Debug</strong>
+      <button onclick="document.getElementById('debugPanel').remove()" style="background:none;border:none;color:#d4a843;cursor:pointer;font-size:14px;padding:0 0 0 8px;">✕</button>
+    </div>
+    <div id="debugLog"></div>
+  </div>
+  <script>
+    function debugLog(msg, type) {
+      const el = document.getElementById('debugLog');
+      if (!el) return;
+      const line = document.createElement('div');
+      line.style.color = type === 'error' ? '#e57373' : type === 'warn' ? '#ffb74d' : '#a5d6a7';
+      line.style.marginBottom = '2px';
+      line.textContent = (new Date().toLocaleTimeString()) + ' ' + msg;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+    window.onerror = (msg, src, line) => debugLog('ERROR: ' + msg + ' (' + src.split('/').pop() + ':' + line + ')', 'error');
+    window.onunhandledrejection = e => debugLog('PROMISE: ' + (e.reason?.message || e.reason), 'error');
+    // Report which scripts loaded
+    ['app.js','scanner.js'].forEach(s => {
+      const script = document.querySelector('script[src="' + s + '"]');
+      if (script) {
+        script.addEventListener('load', () => debugLog(s + ' loaded'));
+        script.addEventListener('error', () => debugLog(s + ' FAILED TO LOAD', 'error'));
+      }
+    });
+    debugLog('page ready, supabase=' + (typeof supabase !== 'undefined') + ', L=' + (typeof L !== 'undefined'));
+  </script>
+
 </body>
 </html>

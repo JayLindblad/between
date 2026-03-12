@@ -31,6 +31,7 @@ async function initZXing() {
 }
 
 async function openCamera() {
+  debugLog('openCamera() called');
   const overlay = document.getElementById('cameraOverlay');
   const status = document.getElementById('cameraStatus');
   const video = document.getElementById('cameraVideo');
@@ -38,8 +39,10 @@ async function openCamera() {
   overlay.classList.add('open');
   status.className = 'camera-status';
   status.textContent = 'Starting camera…';
+  debugLog('overlay opened');
 
   try {
+    debugLog('requesting camera + loading ZXing…');
     // Start camera and ZXing WASM load in parallel
     const [stream] = await Promise.all([
       navigator.mediaDevices.getUserMedia({
@@ -48,22 +51,25 @@ async function openCamera() {
       initZXing()
     ]);
 
+    debugLog('camera stream acquired, zxingReady=' + zxingReady);
     videoStream = stream;
     video.srcObject = stream;
     await video.play();
 
     if (!zxingReady) {
+      debugLog('ZXing not ready', 'warn');
       status.className = 'camera-status error';
       status.textContent = 'Scanner unavailable — please type the ISBN below';
       return;
     }
 
+    debugLog('scan loop starting');
     status.textContent = 'Align barcode within the frame';
     scannerActive = true;
     startScanLoop(video);
 
   } catch(err) {
-    console.error('Camera error:', err);
+    debugLog('Camera error: ' + err.name + ' – ' + err.message, 'error');
     status.className = 'camera-status error';
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
       status.textContent = 'Camera permission denied — please type the ISBN instead';
