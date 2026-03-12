@@ -86,6 +86,149 @@ async function autoFillIsbn() {
   statusEl.textContent = 'Not found in public databases — enter details manually';
 }
 
+// ── Admin barcode scanner ──
+let adminScannerActive = false;
+let adminVideoStream = null;
+let adminScanInterval = null;
+let adminZxingReady = false;
+let adminReadBarcodesFn = null;
+
+async function initAdminZXing() {
+  if (adminZxingReady) return true;
+  try {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://fastly.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/reader/index.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    await ZXingWASM.prepareZXingModule({ fireImmediately: true });
+    adminReadBarcodesFn = ZXingWASM.readBarcodes;
+    adminZxingReady = true;
+    return true;
+  } catch (e) {
+    if (typeof debugLog === 'function') debugLog('ZXing load error: ' + e, 'error');
+    return false;
+  }
+}
+
+async function openAdminCamera() {
+  const overlay = document.getElementById('adminCameraOverlay');
+  const status = document.getElementById('adminCameraStatus');
+  const video = document.getElementById('adminCameraVideo');
+
+  overlay.classList.add('open');
+  status.className = '';
+  status.textContent = 'Starting camera…';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.className = 'error';
+    status.textContent = 'Camera not available — type the ISBN manually';
+    return;
+  }
+
+  try {
+    const [stream] = await Promise.all([
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      }),
+      initAdminZXing()
+    ]);
+
+    adminVideoStream = stream;
+    video.srcObject = stream;
+    await video.play();
+
+    if (!adminZxingReady) {
+      status.className = 'error';
+      status.textContent = 'Scanner unavailable — type the ISBN manually';
+      return;
+    }
+
+    status.textContent = 'Align barcode within the frame';
+    adminScannerActive = true;
+    startAdminScanLoop(video);
+
+  } catch (err) {
+    const denied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+    const noCamera = err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError';
+    status.className = 'error';
+    if (noCamera) { closeAdminCamera(); }
+    else status.textContent = denied ? 'Camera permission denied' : 'Camera unavailable — type the ISBN manually';
+  }
+}
+
+function startAdminScanLoop(video) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  adminScanInterval = setInterval(async () => {
+    if (!adminScannerActive || !adminZxingReady || video.readyState < 2 || !adminReadBarcodesFn) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return;
+
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+
+    try {
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+      if (!blob) return;
+      const results = await adminReadBarcodesFn(blob, {
+        tryHarder: true,
+        formats: ['EAN-13', 'EAN-8'],
+        maxNumberOfSymbols: 1
+      });
+      if (results && results.length > 0) {
+        const clean = results[0].text.replace(/\D/g, '');
+        if (clean.length === 13 && (clean.startsWith('978') || clean.startsWith('979'))) {
+          onAdminBarcodeDetected(clean);
+        }
+      }
+    } catch (_) {}
+  }, 300);
+}
+
+function onAdminBarcodeDetected(isbn) {
+  adminScannerActive = false;
+  const status = document.getElementById('adminCameraStatus');
+  status.className = 'success';
+  status.textContent = 'Found: ' + isbn;
+
+  const reticle = document.querySelector('#adminCameraOverlay .reticle-inner');
+  if (reticle) {
+    reticle.style.outline = '2px solid var(--gold-light)';
+    reticle.style.boxShadow = '0 0 24px rgba(212, 168, 67, 0.5)';
+  }
+
+  setTimeout(() => {
+    closeAdminCamera();
+    document.getElementById('newIsbn').value = isbn;
+    autoFillIsbn();
+  }, 700);
+}
+
+function closeAdminCamera() {
+  adminScannerActive = false;
+  clearInterval(adminScanInterval);
+  adminScanInterval = null;
+
+  if (adminVideoStream) {
+    adminVideoStream.getTracks().forEach(t => t.stop());
+    adminVideoStream = null;
+  }
+
+  const video = document.getElementById('adminCameraVideo');
+  if (video) video.srcObject = null;
+
+  document.getElementById('adminCameraOverlay').classList.remove('open');
+
+  const reticle = document.querySelector('#adminCameraOverlay .reticle-inner');
+  if (reticle) { reticle.style.outline = ''; reticle.style.boxShadow = ''; }
+}
+
 // ── Auth ──
 function showLoginScreen() {
   document.getElementById('loginScreen').style.display = 'flex';
