@@ -41,6 +41,12 @@ let autocompleteTimeout = null;
 let autocompleteActive = -1;
 const entryMarkers = {}; // keyed by sorted entry index → L.circleMarker
 
+// ── Book covers ──
+function bookCoverUrl(isbn, storedUrl) {
+  if (storedUrl) return storedUrl;
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
+}
+
 // ── Geocoding ──
 async function geocodeLocation(loc) {
   if (geocodeCache[loc] !== undefined) {
@@ -218,7 +224,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('isbn, title, author'),
+    supabase.from('books').select('isbn, title, author, cover_url'),
     supabase.from('entries').select('isbn')
   ]);
 
@@ -249,6 +255,7 @@ async function loadAndRenderCatalog() {
 
   grid.innerHTML = books.map((book, i) => `
     <div class="book-card" onclick="openBookDirect('${book.isbn}')">
+      <img class="book-card-cover" src="${bookCoverUrl(book.isbn, book.cover_url)}" alt="" loading="lazy" onerror="this.style.display='none'">
       <p class="book-card-number">No. ${String(i + 1).padStart(2, '0')}</p>
       <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
       <p class="book-card-author">${escapeHtml(book.author)}</p>
@@ -313,6 +320,11 @@ async function lookupISBN(isbnDirect) {
     currentBook = data;
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
+    const coverImg = document.getElementById('resultCover');
+    const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
+    coverImg.src = bookCoverUrl(data.isbn, data.cover_url);
+    coverImg.style.display = 'block';
+    coverPlaceholder.style.display = 'none';
     const count = data.entries.length;
     document.getElementById('resultStops').textContent =
       count === 0
@@ -368,6 +380,9 @@ function openModal() {
 
   document.getElementById('modalTitle').textContent = b.title;
   document.getElementById('modalAuthor').textContent = b.author;
+  const modalCover = document.getElementById('modalCover');
+  modalCover.src = bookCoverUrl(b.isbn, b.cover_url);
+  modalCover.style.display = 'block';
 
   const releaseNoteEl = document.querySelector('.modal-release-note');
   if (b.release_note) {

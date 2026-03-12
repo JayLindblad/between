@@ -222,6 +222,22 @@ h1 em {
   align-items: flex-start;
 }
 
+.book-cover-wrap {
+  width: 72px;
+  min-width: 72px;
+  height: 100px;
+  flex-shrink: 0;
+}
+
+.book-cover-img {
+  width: 72px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  box-shadow: 3px 3px 0 var(--shadow);
+  display: block;
+}
+
 .book-cover-placeholder {
   width: 72px;
   min-width: 72px;
@@ -341,6 +357,15 @@ h1 em {
 }
 
 .book-card:hover::after { transform: scaleX(1); }
+
+.book-card-cover {
+  width: calc(100% + 56px);
+  margin: -32px -28px 20px;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+  border-bottom: 1px solid var(--border);
+}
 
 .book-card-number {
   font-family: 'Cormorant Garamond', serif;
@@ -468,6 +493,27 @@ h1 em {
   top: 0; left: 0; right: 0;
   height: 3px;
   background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+}
+
+.modal-top-inner {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.modal-cover-img {
+  width: 80px;
+  min-width: 80px;
+  height: 112px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  box-shadow: 4px 4px 0 var(--shadow);
+  flex-shrink: 0;
+}
+
+.modal-title-block {
+  flex: 1;
+  min-width: 0;
 }
 
 .modal-close {
@@ -991,6 +1037,7 @@ footer {
   .modal-top, .modal-body, .add-entry-section { padding-left: 24px; padding-right: 24px; }
   .book-grid { grid-template-columns: 1fr; }
   .book-result-inner { flex-direction: column; }
+  .modal-cover-img { width: 64px; min-width: 64px; height: 90px; }
 }
 
 @keyframes journeyDash {
