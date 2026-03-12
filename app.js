@@ -1,6 +1,12 @@
 // ── Supabase client ──
-// SUPABASE_URL and SUPABASE_ANON_KEY are defined in config.js
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// SUPABASE_URL and SUPABASE_ANON_KEY are defined in config.js.
+// If config.js already called createClient(), use that instance.
+// Otherwise create it here. We avoid re-declaring 'supabase' with const/let
+// because that throws "already declared" when config.js does it first.
+if (typeof supabase === 'undefined' || typeof supabase.from !== 'function') {
+  window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+// From here, bare 'supabase' resolves to the initialized client in both cases.
 
 // ── Helpers ──
 function escapeHtml(str) {
