@@ -37,10 +37,23 @@ let currentBook = null;
 let journeyMap = null;
 let geocodeSession = 0;
 const geocodeCache = {};
+let autocompleteTimeout = null;
+let autocompleteActive = -1;
+const entryMarkers = {}; // keyed by sorted entry index → L.circleMarker
+
+// ── Book covers ──
+function bookCoverUrl(isbn, storedUrl) {
+  if (storedUrl) return storedUrl;
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
+}
 
 // ── Geocoding ──
 async function geocodeLocation(loc) {
-  if (geocodeCache[loc] !== undefined) return geocodeCache[loc];
+  if (geocodeCache[loc] !== undefined) {
+    console.log(`[map] geocode cache hit: "${loc}" →`, geocodeCache[loc]);
+    return geocodeCache[loc];
+  }
+  console.log(`[map] geocoding: "${loc}"`);
   try {
     const res = await fetch(
       'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(loc) + '&format=json&limit=1',
@@ -49,41 +62,119 @@ async function geocodeLocation(loc) {
     const data = await res.json();
     const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
     geocodeCache[loc] = result;
+    if (result) console.log(`[map] geocode ok: "${loc}" →`, result);
+    else console.warn(`[map] geocode no result for: "${loc}"`);
     return result;
-  } catch {
+  } catch (err) {
+    console.error(`[map] geocode failed for "${loc}":`, err);
     geocodeCache[loc] = null;
     return null;
   }
 }
 
+function buildArcPath(latlng1, latlng2, segIndex) {
+  const p1 = [latlng1.lat, latlng1.lng];
+  const p2 = [latlng2.lat, latlng2.lng];
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 0.0001) return [p1, p2];
+
+  // Arc control point — alternates sides each segment for visual variety
+  const side = segIndex % 2 === 0 ? 1 : -1;
+  const arc = dist * 0.18 * side;
+  const cx = (p1[0] + p2[0]) / 2 - (dy / dist) * arc;
+  const cy = (p1[1] + p2[1]) / 2 + (dx / dist) * arc;
+
+  const steps = 28;
+  const wobble = dist * 0.012;
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const mt = 1 - t;
+    const lat = mt * mt * p1[0] + 2 * mt * t * cx + t * t * p2[0];
+    const lng = mt * mt * p1[1] + 2 * mt * t * cy + t * t * p2[1];
+    const w = Math.sin(t * 13.1 + segIndex * 7.3) * wobble;
+    pts.push([lat + w * (-dy / dist), lng + w * (dx / dist)]);
+  }
+  return pts;
+}
+
 async function renderJourneyMap(entries) {
   const mapEl = document.getElementById('journeyMap');
-  if (!mapEl || typeof L === 'undefined') return;
+  if (!mapEl) { console.error('[map] #journeyMap element not found'); return; }
+  if (typeof L === 'undefined') { console.error('[map] Leaflet (L) not loaded'); return; }
+
+  const rect = mapEl.getBoundingClientRect();
+  console.log(`[map] container size: ${rect.width}×${rect.height}, display: ${getComputedStyle(mapEl).display}`);
 
   if (journeyMap) { journeyMap.remove(); journeyMap = null; }
   mapEl.style.display = 'block';
 
   const session = ++geocodeSession;
-  journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+  console.log(`[map] init session=${session}, entries=${entries.length}`);
+
+  try {
+    journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+    journeyMap.invalidateSize(); // force re-measure in case container was display:none
+    console.log('[map] L.map() ok, size after invalidate:', journeyMap.getSize());
+  } catch (err) {
+    console.error('[map] L.map() threw:', err);
+    return;
+  }
+
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 19
   }).addTo(journeyMap);
 
+  Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  const markers = [];
 
+  // Phase 1: geocode all locations first
+  const resolved = []; // { entryIndex, entry, coords }
   for (let i = 0; i < sorted.length; i++) {
-    if (geocodeSession !== session) return;
+    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
-    if (!entry.found_location) continue;
+    if (!entry.found_location) { console.log(`[map] entry ${i} has no location, skipping`); continue; }
     if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-    if (geocodeSession !== session) return;
+    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
 
     const coords = await geocodeLocation(entry.found_location);
     if (geocodeSession !== session) return;
-    if (!coords) continue;
+    if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
+    resolved.push({ entryIndex: i, entry, coords });
+  }
 
+  // Phase 2: draw path first (so it's behind markers in SVG z-order — no bringToBack needed)
+  if (resolved.length > 1) {
+    if (!document.getElementById('journey-svg-defs')) {
+      const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgDefs.id = 'journey-svg-defs';
+      svgDefs.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
+      svgDefs.innerHTML = `<defs><filter id="journey-roughen" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>`;
+      document.body.appendChild(svgDefs);
+    }
+    const latlngs = resolved.map(r => [r.coords.lat, r.coords.lng]);
+    const allPoints = [];
+    for (let i = 0; i < latlngs.length - 1; i++) {
+      const seg = buildArcPath(L.latLng(latlngs[i]), L.latLng(latlngs[i + 1]), i);
+      if (i === 0) allPoints.push(...seg);
+      else allPoints.push(...seg.slice(1));
+    }
+    L.polyline(allPoints, {
+      color: '#8b3a2a',
+      weight: 2,
+      opacity: 0.75,
+      dashArray: '5 9',
+      className: 'journey-path'
+    }).addTo(journeyMap);
+    console.log(`[map] path drawn with ${allPoints.length} points`);
+  }
+
+  // Phase 3: add markers on top
+  const markers = [];
+  for (const { entryIndex, entry, coords } of resolved) {
     const marker = L.circleMarker([coords.lat, coords.lng], {
       radius: 7,
       fillColor: '#8b3a2a',
@@ -91,20 +182,37 @@ async function renderJourneyMap(entries) {
       weight: 2,
       fillOpacity: 0.85
     }).addTo(journeyMap);
+    entryMarkers[entryIndex] = marker;
 
     const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
-      `<strong>${escapeHtml(entry.found_location)}</strong><br><em>${dateStr}</em>` +
-      (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
+      `<span class="map-popup-place">${escapeHtml(entry.found_location)}</span>` +
+      `<span class="map-popup-date">${dateStr}</span>`
     );
     markers.push(marker);
   }
 
+  console.log(`[map] placed ${markers.length} marker(s)`);
   if (markers.length > 0) {
-    journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+    try {
+      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+      console.log('[map] fitBounds ok');
+    } catch (err) {
+      console.error('[map] fitBounds threw:', err);
+    }
   } else {
+    console.warn('[map] no markers placed — hiding map');
     mapEl.style.display = 'none';
   }
+}
+
+function focusEntryOnMap(index) {
+  const marker = entryMarkers[index];
+  if (!marker || !journeyMap) return;
+  const mapEl = document.getElementById('journeyMap');
+  if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  journeyMap.setView(marker.getLatLng(), 11, { animate: true });
+  marker.openPopup();
 }
 
 // ── Catalog ──
@@ -116,7 +224,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('isbn, title, author'),
+    supabase.from('books').select('isbn, title, author, cover_url'),
     supabase.from('entries').select('isbn')
   ]);
 
@@ -147,6 +255,7 @@ async function loadAndRenderCatalog() {
 
   grid.innerHTML = books.map((book, i) => `
     <div class="book-card" onclick="openBookDirect('${book.isbn}')">
+      <img class="book-card-cover" src="${bookCoverUrl(book.isbn, book.cover_url)}" alt="" loading="lazy" onerror="this.style.display='none'">
       <p class="book-card-number">No. ${String(i + 1).padStart(2, '0')}</p>
       <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
       <p class="book-card-author">${escapeHtml(book.author)}</p>
@@ -211,6 +320,11 @@ async function lookupISBN(isbnDirect) {
     currentBook = data;
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
+    const coverImg = document.getElementById('resultCover');
+    const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
+    coverImg.src = bookCoverUrl(data.isbn, data.cover_url);
+    coverImg.style.display = 'block';
+    coverPlaceholder.style.display = 'none';
     const count = data.entries.length;
     document.getElementById('resultStops').textContent =
       count === 0
@@ -266,6 +380,9 @@ function openModal() {
 
   document.getElementById('modalTitle').textContent = b.title;
   document.getElementById('modalAuthor').textContent = b.author;
+  const modalCover = document.getElementById('modalCover');
+  modalCover.src = bookCoverUrl(b.isbn, b.cover_url);
+  modalCover.style.display = 'block';
 
   const releaseNoteEl = document.querySelector('.modal-release-note');
   if (b.release_note) {
@@ -291,9 +408,10 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
-            <span class="entry-location">${escapeHtml(entry.found_location)}</span>
+            <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
             <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
           </div>
+          ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}
           <p class="entry-message">${escapeHtml(entry.message || '')}</p>
         </div>
       </div>
@@ -301,16 +419,17 @@ function openModal() {
   }
 
   const mapEl = document.getElementById('journeyMap');
-  if (entries.length > 0) {
-    renderJourneyMap(entries);
-  } else if (mapEl) {
-    mapEl.style.display = 'none';
-  }
+  if (mapEl) mapEl.style.display = entries.length > 0 ? 'block' : 'none';
 
   resetEntryForm();
 
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  if (entries.length > 0) {
+    // Defer map init until after the modal is visible so Leaflet can measure dimensions
+    requestAnimationFrame(() => renderJourneyMap(entries));
+  }
 }
 
 function resetEntryForm() {
@@ -318,8 +437,14 @@ function resetEntryForm() {
   section.innerHTML = `
     <p class="add-entry-title">Add your chapter</p>
     <div class="form-field">
-      <label class="form-label">Where did you find it?</label>
-      <input class="form-input" id="entryLocation" type="text" placeholder="A coffee shop in Portland, a bench in Riverside Park…" />
+      <label class="form-label">City</label>
+      <div class="location-autocomplete-wrapper">
+        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY" autocomplete="off" />
+      </div>
+    </div>
+    <div class="form-field">
+      <label class="form-label">The exact spot <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+      <input class="form-input" id="entryLocationDesc" type="text" placeholder="On a park bench, tucked behind the coffee shop shelf…" />
     </div>
     <div class="form-field">
       <label class="form-label">When did you find it? <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
@@ -339,6 +464,107 @@ function resetEntryForm() {
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
     <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
   `;
+  initLocationAutocomplete();
+}
+
+// ── Location autocomplete ──
+function initLocationAutocomplete() {
+  const input = document.getElementById('entryLocationPlace');
+  if (!input) return;
+
+  const wrapper = input.closest('.location-autocomplete-wrapper');
+  const suggestions = document.createElement('ul');
+  suggestions.className = 'location-suggestions';
+  wrapper.appendChild(suggestions);
+
+  input.addEventListener('input', () => {
+    clearTimeout(autocompleteTimeout);
+    autocompleteActive = -1;
+    const q = input.value.trim();
+    if (q.length < 2) {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      return;
+    }
+    autocompleteTimeout = setTimeout(() => fetchLocationSuggestions(q, suggestions, input), 350);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = suggestions.querySelectorAll('.location-suggestion-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      autocompleteActive = Math.min(autocompleteActive + 1, items.length - 1);
+      updateActiveSuggestion(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      autocompleteActive = Math.max(autocompleteActive - 1, -1);
+      updateActiveSuggestion(items);
+    } else if (e.key === 'Enter' && autocompleteActive >= 0) {
+      e.preventDefault();
+      items[autocompleteActive].click();
+    } else if (e.key === 'Escape') {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      autocompleteActive = -1;
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      autocompleteActive = -1;
+    }, 200);
+  });
+}
+
+async function fetchLocationSuggestions(query, listEl, input) {
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) +
+      '&format=json&limit=5&addressdetails=1',
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    autocompleteActive = -1;
+    listEl.innerHTML = '';
+    if (!data.length) { listEl.classList.remove('open'); return; }
+
+    data.forEach(place => {
+      const li = document.createElement('li');
+      li.className = 'location-suggestion-item';
+      const name = formatPlaceName(place);
+      li.textContent = name;
+      li.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent input blur before click fires
+        input.value = name;
+        listEl.innerHTML = '';
+        listEl.classList.remove('open');
+        autocompleteActive = -1;
+      });
+      listEl.appendChild(li);
+    });
+    listEl.classList.add('open');
+  } catch {
+    listEl.classList.remove('open');
+  }
+}
+
+function formatPlaceName(place) {
+  const a = place.address || {};
+  const city = a.city || a.town || a.village || a.hamlet || a.suburb;
+  const parts = [];
+  // Include the POI/business name if Nominatim has one (e.g. "Powell's Books", "Central Park")
+  if (place.name && place.name !== city) parts.push(place.name);
+  if (city) parts.push(city);
+  if (a.state) parts.push(a.state);
+  if (a.country) parts.push(a.country);
+  return parts.length ? parts.join(', ') : place.display_name.split(',').slice(0, 3).join(',').trim();
+}
+
+function updateActiveSuggestion(items) {
+  items.forEach((item, i) => item.classList.toggle('active', i === autocompleteActive));
 }
 
 function closeModal() {
@@ -358,15 +584,16 @@ function handleOverlayClick(e) {
 async function submitEntry() {
   if (!currentBook) return;
 
-  const location = document.getElementById('entryLocation').value.trim();
+  const locationPlace = document.getElementById('entryLocationPlace').value.trim();
+  const locationDesc = document.getElementById('entryLocationDesc').value.trim();
   const message = document.getElementById('entryMessage').value.trim();
   const foundAt = document.getElementById('entryDate').value || null;
   const errorEl = document.getElementById('entryError');
   const btn = document.getElementById('submitEntryBtn');
 
-  if (!location) {
-    errorEl.textContent = 'Please tell us where you found it.';
-    document.getElementById('entryLocation').focus();
+  if (!locationPlace) {
+    errorEl.textContent = 'Please enter a city or place name for the map.';
+    document.getElementById('entryLocationPlace').focus();
     return;
   }
 
@@ -378,7 +605,8 @@ async function submitEntry() {
     .from('entries')
     .insert({
       isbn: currentBook.isbn,
-      found_location: location,
+      found_location: locationPlace,
+      location_description: locationDesc || null,
       message: message || null,
       found_date: foundAt
     });

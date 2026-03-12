@@ -49,7 +49,10 @@
       <!-- Result panel -->
       <div class="book-result" id="bookResult">
         <div class="book-result-inner">
-          <div class="book-cover-placeholder">📖</div>
+          <div class="book-cover-wrap">
+            <img class="book-cover-img" id="resultCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
+            <div class="book-cover-placeholder" id="resultCoverPlaceholder">📖</div>
+          </div>
           <div class="book-meta">
             <h3 id="resultTitle">—</h3>
             <p class="author" id="resultAuthor">—</p>
@@ -123,8 +126,13 @@
     <div class="modal" id="modal">
       <div class="modal-top">
         <button class="modal-close" onclick="closeModal()">✕</button>
-        <h2 class="modal-book-title" id="modalTitle">—</h2>
-        <p class="modal-book-author" id="modalAuthor">—</p>
+        <div class="modal-top-inner">
+          <img class="modal-cover-img" id="modalCover" src="" alt="" onerror="this.style.display='none'">
+          <div class="modal-title-block">
+            <h2 class="modal-book-title" id="modalTitle">—</h2>
+            <p class="modal-book-author" id="modalAuthor">—</p>
+          </div>
+        </div>
         <div class="modal-release-note">
           <span id="modalReleaseNote">—</span>
           <cite id="modalReleaseMeta">—</cite>

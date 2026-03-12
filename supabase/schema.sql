@@ -13,13 +13,17 @@ create table books (
 );
 
 create table entries (
-  id          uuid primary key default gen_random_uuid(),
-  isbn        text not null references books(isbn) on delete cascade,
-  found_location  text not null,
-  message     text,
-  found_date  date,
-  created_at  timestamptz not null default now()
+  id                   uuid primary key default gen_random_uuid(),
+  isbn                 text not null references books(isbn) on delete cascade,
+  found_location       text not null,        -- geocodable place name (city/region) for map pins
+  location_description text,                 -- optional free-text spot description ("on a park bench…")
+  message              text,
+  found_date           date,
+  created_at           timestamptz not null default now()
 );
+
+-- Migration: if the table already exists, add the new column with:
+-- alter table entries add column if not exists location_description text;
 
 create index entries_isbn_idx on entries(isbn);
 
