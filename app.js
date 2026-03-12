@@ -441,6 +441,8 @@ function formatPlaceName(place) {
   const a = place.address || {};
   const city = a.city || a.town || a.village || a.hamlet || a.suburb;
   const parts = [];
+  // Include the POI/business name if Nominatim has one (e.g. "Powell's Books", "Central Park")
+  if (place.name && place.name !== city) parts.push(place.name);
   if (city) parts.push(city);
   if (a.state) parts.push(a.state);
   if (a.country) parts.push(a.country);
