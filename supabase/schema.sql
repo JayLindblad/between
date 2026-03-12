@@ -16,14 +16,14 @@ create table books (
 
 create table entries (
   id          uuid primary key default gen_random_uuid(),
-  book_id     uuid not null references books(id) on delete cascade,
-  location    text not null,
+  isbn        text not null references books(isbn) on delete cascade,
+  found_location  text not null,
   message     text,
-  found_at    date,
+  found_date  date,
   created_at  timestamptz not null default now()
 );
 
-create index entries_book_id_idx on entries(book_id);
+create index entries_isbn_idx on entries(isbn);
 
 -- ── Row Level Security ───────────────────────────────────────────────────────
 -- The anon key is public (used in the browser). Authenticated users (admins)
