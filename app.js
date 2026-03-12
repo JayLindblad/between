@@ -37,6 +37,8 @@ let currentBook = null;
 let journeyMap = null;
 let geocodeSession = 0;
 const geocodeCache = {};
+let autocompleteTimeout = null;
+let autocompleteActive = -1;
 
 // ── Geocoding ──
 async function geocodeLocation(loc) {
@@ -94,7 +96,9 @@ async function renderJourneyMap(entries) {
 
     const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
-      `<strong>${escapeHtml(entry.found_location)}</strong><br><em>${dateStr}</em>` +
+      `<strong>${escapeHtml(entry.found_location)}</strong>` +
+      (entry.location_description ? `<br><em>${escapeHtml(entry.location_description)}</em>` : '') +
+      `<br><em>${dateStr}</em>` +
       (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
     );
     markers.push(marker);
@@ -294,6 +298,7 @@ function openModal() {
             <span class="entry-location">${escapeHtml(entry.found_location)}</span>
             <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
           </div>
+          ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}
           <p class="entry-message">${escapeHtml(entry.message || '')}</p>
         </div>
       </div>
@@ -318,8 +323,14 @@ function resetEntryForm() {
   section.innerHTML = `
     <p class="add-entry-title">Add your chapter</p>
     <div class="form-field">
-      <label class="form-label">Where did you find it?</label>
-      <input class="form-input" id="entryLocation" type="text" placeholder="A coffee shop in Portland, a bench in Riverside Park…" />
+      <label class="form-label">City or place <span class="form-label-hint">— for the map pin</span></label>
+      <div class="location-autocomplete-wrapper">
+        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY · London…" autocomplete="off" />
+      </div>
+    </div>
+    <div class="form-field">
+      <label class="form-label">The exact spot <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+      <input class="form-input" id="entryLocationDesc" type="text" placeholder="On a park bench, tucked behind the coffee shop shelf…" />
     </div>
     <div class="form-field">
       <label class="form-label">When did you find it? <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
@@ -339,6 +350,105 @@ function resetEntryForm() {
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
     <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
   `;
+  initLocationAutocomplete();
+}
+
+// ── Location autocomplete ──
+function initLocationAutocomplete() {
+  const input = document.getElementById('entryLocationPlace');
+  if (!input) return;
+
+  const wrapper = input.closest('.location-autocomplete-wrapper');
+  const suggestions = document.createElement('ul');
+  suggestions.className = 'location-suggestions';
+  wrapper.appendChild(suggestions);
+
+  input.addEventListener('input', () => {
+    clearTimeout(autocompleteTimeout);
+    autocompleteActive = -1;
+    const q = input.value.trim();
+    if (q.length < 2) {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      return;
+    }
+    autocompleteTimeout = setTimeout(() => fetchLocationSuggestions(q, suggestions, input), 350);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = suggestions.querySelectorAll('.location-suggestion-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      autocompleteActive = Math.min(autocompleteActive + 1, items.length - 1);
+      updateActiveSuggestion(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      autocompleteActive = Math.max(autocompleteActive - 1, -1);
+      updateActiveSuggestion(items);
+    } else if (e.key === 'Enter' && autocompleteActive >= 0) {
+      e.preventDefault();
+      items[autocompleteActive].click();
+    } else if (e.key === 'Escape') {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      autocompleteActive = -1;
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      suggestions.innerHTML = '';
+      suggestions.classList.remove('open');
+      autocompleteActive = -1;
+    }, 200);
+  });
+}
+
+async function fetchLocationSuggestions(query, listEl, input) {
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) +
+      '&format=json&limit=5&addressdetails=1',
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    autocompleteActive = -1;
+    listEl.innerHTML = '';
+    if (!data.length) { listEl.classList.remove('open'); return; }
+
+    data.forEach(place => {
+      const li = document.createElement('li');
+      li.className = 'location-suggestion-item';
+      const name = formatPlaceName(place);
+      li.textContent = name;
+      li.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent input blur before click fires
+        input.value = name;
+        listEl.innerHTML = '';
+        listEl.classList.remove('open');
+        autocompleteActive = -1;
+      });
+      listEl.appendChild(li);
+    });
+    listEl.classList.add('open');
+  } catch {
+    listEl.classList.remove('open');
+  }
+}
+
+function formatPlaceName(place) {
+  const a = place.address || {};
+  const city = a.city || a.town || a.village || a.hamlet || a.suburb;
+  const parts = [];
+  if (city) parts.push(city);
+  if (a.state) parts.push(a.state);
+  if (a.country) parts.push(a.country);
+  return parts.length ? parts.join(', ') : place.display_name.split(',').slice(0, 3).join(',').trim();
+}
+
+function updateActiveSuggestion(items) {
+  items.forEach((item, i) => item.classList.toggle('active', i === autocompleteActive));
 }
 
 function closeModal() {
@@ -358,15 +468,16 @@ function handleOverlayClick(e) {
 async function submitEntry() {
   if (!currentBook) return;
 
-  const location = document.getElementById('entryLocation').value.trim();
+  const locationPlace = document.getElementById('entryLocationPlace').value.trim();
+  const locationDesc = document.getElementById('entryLocationDesc').value.trim();
   const message = document.getElementById('entryMessage').value.trim();
   const foundAt = document.getElementById('entryDate').value || null;
   const errorEl = document.getElementById('entryError');
   const btn = document.getElementById('submitEntryBtn');
 
-  if (!location) {
-    errorEl.textContent = 'Please tell us where you found it.';
-    document.getElementById('entryLocation').focus();
+  if (!locationPlace) {
+    errorEl.textContent = 'Please enter a city or place name for the map.';
+    document.getElementById('entryLocationPlace').focus();
     return;
   }
 
@@ -378,7 +489,8 @@ async function submitEntry() {
     .from('entries')
     .insert({
       isbn: currentBook.isbn,
-      found_location: location,
+      found_location: locationPlace,
+      location_description: locationDesc || null,
       message: message || null,
       found_date: foundAt
     });
