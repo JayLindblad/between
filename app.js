@@ -140,7 +140,7 @@ async function loadAndRenderCatalog() {
   }
 
   grid.innerHTML = books.map((book, i) => `
-    <div class="book-card" onclick="openBookDirect(${book.id})">
+    <div class="book-card" onclick="openBookDirect('${book.id}')">
       <p class="book-card-number">No. ${String(i + 1).padStart(2, '0')}</p>
       <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
       <p class="book-card-author">${escapeHtml(book.author)}</p>
@@ -382,7 +382,8 @@ async function submitEntry() {
   if (error) {
     btn.textContent = 'Leave Your Mark';
     btn.disabled = false;
-    errorEl.textContent = 'Something went wrong. Please try again.';
+    if (typeof debugLog === 'function') debugLog('entry insert error: ' + (error.message || error.code || JSON.stringify(error)), 'error');
+    errorEl.textContent = 'Something went wrong: ' + (error.message || error.code || 'unknown error');
     return;
   }
 

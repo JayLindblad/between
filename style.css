@@ -628,6 +628,8 @@ h1 em {
 
 .form-input, .form-textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--border);
   background: var(--cream);
   padding: 11px 14px;
