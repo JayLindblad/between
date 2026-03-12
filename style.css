@@ -685,24 +685,18 @@ h1 em {
   display: grid;
   grid-template-columns: 48px 1fr;
   gap: 0 20px;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
   position: relative;
-}
-
-.journey-entry:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  left: 23px;
-  top: 48px;
-  bottom: -16px;
-  width: 1px;
-  background: var(--border);
+  background: white;
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+  align-items: start;
 }
 
 .entry-number {
   width: 48px;
   height: 48px;
-  background: white;
+  background: var(--cream);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -759,7 +753,7 @@ h1 em {
   font-size: 16px;
   line-height: 1.65;
   color: var(--ink-light);
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .entry-photo {
@@ -1153,16 +1147,10 @@ footer {
   .journey-entry {
     grid-template-columns: 1fr;
     gap: 12px 0;
-    padding-bottom: 28px;
-    margin-bottom: 0;
+    padding: 16px 18px;
+    margin-bottom: 12px;
   }
-  .journey-entry:not(:last-child) {
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 28px;
-  }
-  .journey-entry:not(:last-child)::before {
-    display: none;
-  }
+  .journey-entry:not(:last-child)::before { display: none; }
   .entry-number {
     width: 100%;
     height: 40px;
