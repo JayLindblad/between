@@ -410,11 +410,17 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
-            <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
-            <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
+            <div class="entry-field">
+              <span class="entry-field-label">City</span>
+              <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
+            </div>
+            <div class="entry-field entry-field--right">
+              <span class="entry-field-label">Date</span>
+              <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
+            </div>
           </div>
-          ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}
-          <p class="entry-message">${escapeHtml(entry.message || '')}</p>
+          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
+          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
           ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(entry.photo_url)}" alt="" loading="lazy">` : ''}
         </div>
       </div>

@@ -708,6 +708,30 @@ h1 em {
 }
 
 
+.entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.entry-field:last-child { margin-bottom: 0; }
+
+.entry-field--right { text-align: right; }
+
+.entry-field-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.entry-location-desc,
+.entry-message {
+  margin: 0;
+}
+
 .entry-header {
   display: flex;
   flex-direction: column;
@@ -745,7 +769,6 @@ h1 em {
   font-style: italic;
   font-size: 14px;
   color: var(--ink-faint);
-  margin: 2px 0 6px;
   line-height: 1.4;
 }
 
