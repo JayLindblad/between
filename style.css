@@ -1147,6 +1147,20 @@ footer {
   .book-grid { grid-template-columns: 1fr; }
   .book-result-inner { flex-direction: column; }
   .modal-cover-img { width: 64px; min-width: 64px; height: 90px; }
+
+  /* Stack entry number above content on mobile */
+  .journey-entry {
+    grid-template-columns: 1fr;
+    gap: 8px 0;
+  }
+  .journey-entry:not(:last-child)::before {
+    display: none;
+  }
+  .entry-number {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
 }
 
 @keyframes journeyDash {

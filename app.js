@@ -676,17 +676,22 @@ async function submitEntry() {
   if (file) {
     const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
     const path = `${currentBook.isbn}/${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
+    if (typeof debugLog === 'function') debugLog(`photo: uploading ${file.name} (${Math.round(file.size/1024)}KB) → ${path}`);
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('entry-photos')
       .upload(path, file, { contentType: file.type });
     if (uploadError) {
-      if (typeof debugLog === 'function') debugLog('photo upload error: ' + uploadError.message, 'warn');
+      if (typeof debugLog === 'function') debugLog('photo upload failed: ' + uploadError.message + ' (code: ' + (uploadError.statusCode || '?') + ')', 'error');
     } else {
       const { data: urlData } = supabase.storage.from('entry-photos').getPublicUrl(path);
       photo_url = urlData.publicUrl;
+      if (typeof debugLog === 'function') debugLog('photo upload ok → ' + photo_url);
     }
+  } else {
+    if (typeof debugLog === 'function') debugLog('photo: no file selected');
   }
 
+  if (typeof debugLog === 'function') debugLog(`entry insert: photo_url=${photo_url ? 'set' : 'null'}`);
   const { error } = await supabase
     .from('entries')
     .insert({
