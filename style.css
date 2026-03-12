@@ -850,6 +850,7 @@ h1 em {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  min-height: 46px;
   -webkit-appearance: none;
   appearance: none;
   border: 1px solid var(--border);
