@@ -19,7 +19,7 @@ create table entries (
   book_id     uuid not null references books(id) on delete cascade,
   location    text not null,
   message     text,
-  found_at    date,
+  found_date  date,
   created_at  timestamptz not null default now()
 );
 

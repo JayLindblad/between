@@ -92,7 +92,7 @@ async function renderJourneyMap(entries) {
       fillOpacity: 0.85
     }).addTo(journeyMap);
 
-    const dateStr = entry.found_at ? formatDate(entry.found_at) : formatDate(entry.created_at);
+    const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
       `<strong>${escapeHtml(entry.location)}</strong><br><em>${dateStr}</em>` +
       (entry.message ? `<br>${escapeHtml(entry.message)}` : '')
@@ -288,7 +288,7 @@ function openModal() {
         <div class="entry-content">
           <div class="entry-header">
             <span class="entry-location">${escapeHtml(entry.location)}</span>
-            <span class="entry-date">${formatDate(entry.found_at || entry.created_at)}</span>
+            <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
           </div>
           <p class="entry-message">${escapeHtml(entry.message || '')}</p>
         </div>
@@ -376,7 +376,7 @@ async function submitEntry() {
       book_id: currentBook.id,
       location,
       message: message || null,
-      found_at: foundAt
+      found_date: foundAt
     });
 
   if (error) {
