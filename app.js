@@ -3,14 +3,14 @@
 // If config.js already called createClient(), use that instance.
 // Otherwise create it here. We avoid re-declaring 'supabase' with const/let
 // because that throws "already declared" when config.js does it first.
-if (typeof supabase === 'undefined' || typeof supabase.from !== 'function') {
+if (!window._supabaseClient) {
   if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
-    // config.js didn't load or secrets aren't set — log clearly and stop
     if (typeof debugLog === 'function') debugLog('FATAL: config.js missing or secrets not set', 'error');
     throw new Error('Between Readers: SUPABASE_URL/KEY not defined. Check config.js or GitHub secrets.');
   }
-  window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
+const supabase = window._supabaseClient;
 // From here, bare 'supabase' resolves to the initialized client in both cases.
 
 // ── Helpers ──
