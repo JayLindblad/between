@@ -39,6 +39,7 @@ let geocodeSession = 0;
 const geocodeCache = {};
 let autocompleteTimeout = null;
 let autocompleteActive = -1;
+const entryMarkers = {}; // keyed by sorted entry index → L.circleMarker
 
 // ── Geocoding ──
 async function geocodeLocation(loc) {
@@ -72,6 +73,7 @@ async function renderJourneyMap(entries) {
     maxZoom: 19
   }).addTo(journeyMap);
 
+  Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const markers = [];
 
@@ -93,6 +95,7 @@ async function renderJourneyMap(entries) {
       weight: 2,
       fillOpacity: 0.85
     }).addTo(journeyMap);
+    entryMarkers[i] = marker;
 
     const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
     marker.bindPopup(
@@ -102,11 +105,31 @@ async function renderJourneyMap(entries) {
     markers.push(marker);
   }
 
+  if (markers.length > 1) {
+    const latLngs = markers.map(m => m.getLatLng());
+    L.polyline(latLngs, {
+      color: '#8b3a2a',
+      weight: 2,
+      opacity: 0.7,
+      dashArray: '5 9',
+      className: 'journey-path'
+    }).addTo(journeyMap).bringToBack();
+  }
+
   if (markers.length > 0) {
     journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
   } else {
     mapEl.style.display = 'none';
   }
+}
+
+function focusEntryOnMap(index) {
+  const marker = entryMarkers[index];
+  if (!marker || !journeyMap) return;
+  const mapEl = document.getElementById('journeyMap');
+  if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  journeyMap.setView(marker.getLatLng(), 11, { animate: true });
+  marker.openPopup();
 }
 
 // ── Catalog ──
@@ -293,7 +316,7 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
-            <span class="entry-location">${escapeHtml(entry.found_location)}</span>
+            <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
             <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
           </div>
           ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}

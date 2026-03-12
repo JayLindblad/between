@@ -576,6 +576,15 @@ h1 em {
   font-weight: 500;
 }
 
+.entry-location-link {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.entry-location-link:hover {
+  color: var(--rust);
+}
+
 .entry-date {
   font-size: 13px;
   color: var(--ink-faint);
@@ -979,6 +988,14 @@ footer {
   .modal-top, .modal-body, .add-entry-section { padding-left: 24px; padding-right: 24px; }
   .book-grid { grid-template-columns: 1fr; }
   .book-result-inner { flex-direction: column; }
+}
+
+@keyframes journeyDash {
+  to { stroke-dashoffset: -28; }
+}
+
+.journey-path {
+  animation: journeyDash 1s linear infinite;
 }
 
 /* ── Journey Map ── */
