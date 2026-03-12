@@ -996,6 +996,7 @@ footer {
 
 .journey-path {
   animation: journeyDash 1s linear infinite;
+  filter: url(#journey-roughen);
 }
 
 /* ── Journey Map ── */
