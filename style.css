@@ -578,11 +578,18 @@ h1 em {
 
 .entry-location-link {
   cursor: pointer;
-  transition: color 0.15s;
+  padding-bottom: 2px;
+  background-image: linear-gradient(var(--rust), var(--rust));
+  background-size: 0% 1.5px;
+  background-position: left bottom;
+  background-repeat: no-repeat;
+  transition: color 0.2s ease, background-size 0.3s ease, letter-spacing 0.2s ease;
 }
 
 .entry-location-link:hover {
   color: var(--rust);
+  background-size: 100% 1.5px;
+  letter-spacing: 0.02em;
 }
 
 .entry-date {
