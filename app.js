@@ -124,8 +124,9 @@ async function renderJourneyMap(entries) {
 
   Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  const markers = [];
 
+  // Phase 1: geocode all locations first
+  const resolved = []; // { entryIndex, entry, coords }
   for (let i = 0; i < sorted.length; i++) {
     if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
@@ -136,25 +137,11 @@ async function renderJourneyMap(entries) {
     const coords = await geocodeLocation(entry.found_location);
     if (geocodeSession !== session) return;
     if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
-
-    const marker = L.circleMarker([coords.lat, coords.lng], {
-      radius: 7,
-      fillColor: '#8b3a2a',
-      color: '#f5f0e8',
-      weight: 2,
-      fillOpacity: 0.85
-    }).addTo(journeyMap);
-    entryMarkers[i] = marker;
-
-    const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
-    marker.bindPopup(
-      `<span class="map-popup-place">${escapeHtml(entry.found_location)}</span>` +
-      `<span class="map-popup-date">${dateStr}</span>`
-    );
-    markers.push(marker);
+    resolved.push({ entryIndex: i, entry, coords });
   }
 
-  if (markers.length > 1) {
+  // Phase 2: draw path first (so it's behind markers in SVG z-order — no bringToBack needed)
+  if (resolved.length > 1) {
     if (!document.getElementById('journey-svg-defs')) {
       const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svgDefs.id = 'journey-svg-defs';
@@ -162,26 +149,41 @@ async function renderJourneyMap(entries) {
       svgDefs.innerHTML = `<defs><filter id="journey-roughen" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>`;
       document.body.appendChild(svgDefs);
     }
+    const latlngs = resolved.map(r => [r.coords.lat, r.coords.lng]);
     const allPoints = [];
-    for (let i = 0; i < markers.length - 1; i++) {
-      const seg = buildArcPath(markers[i].getLatLng(), markers[i + 1].getLatLng(), i);
+    for (let i = 0; i < latlngs.length - 1; i++) {
+      const seg = buildArcPath(L.latLng(latlngs[i]), L.latLng(latlngs[i + 1]), i);
       if (i === 0) allPoints.push(...seg);
       else allPoints.push(...seg.slice(1));
     }
-    const polyline = L.polyline(allPoints, {
+    L.polyline(allPoints, {
       color: '#8b3a2a',
       weight: 2,
       opacity: 0.75,
       dashArray: '5 9',
       className: 'journey-path'
     }).addTo(journeyMap);
-    // _path may be absent if the SVG renderer had zero dimensions at init time
-    if (polyline._path) {
-      polyline.bringToBack();
-    } else {
-      console.warn('[map] polyline._path not yet in DOM — skipping bringToBack, will retry after invalidateSize');
-      journeyMap.once('moveend', () => { try { polyline.bringToBack(); } catch(e) {} });
-    }
+    console.log(`[map] path drawn with ${allPoints.length} points`);
+  }
+
+  // Phase 3: add markers on top
+  const markers = [];
+  for (const { entryIndex, entry, coords } of resolved) {
+    const marker = L.circleMarker([coords.lat, coords.lng], {
+      radius: 7,
+      fillColor: '#8b3a2a',
+      color: '#f5f0e8',
+      weight: 2,
+      fillOpacity: 0.85
+    }).addTo(journeyMap);
+    entryMarkers[entryIndex] = marker;
+
+    const dateStr = entry.found_date ? formatDate(entry.found_date) : formatDate(entry.created_at);
+    marker.bindPopup(
+      `<span class="map-popup-place">${escapeHtml(entry.found_location)}</span>` +
+      `<span class="map-popup-date">${dateStr}</span>`
+    );
+    markers.push(marker);
   }
 
   console.log(`[map] placed ${markers.length} marker(s)`);
