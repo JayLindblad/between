@@ -407,7 +407,7 @@ function openModal() {
     const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     container.innerHTML = sorted.map((entry, i) => `
       <div class="journey-entry">
-        <div class="entry-number"><span class="entry-number-stop">Stop </span>${i + 1}</div>
+        <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
             <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
