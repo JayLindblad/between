@@ -367,16 +367,17 @@ function openModal() {
   }
 
   const mapEl = document.getElementById('journeyMap');
-  if (entries.length > 0) {
-    renderJourneyMap(entries);
-  } else if (mapEl) {
-    mapEl.style.display = 'none';
-  }
+  if (mapEl) mapEl.style.display = entries.length > 0 ? 'block' : 'none';
 
   resetEntryForm();
 
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  if (entries.length > 0) {
+    // Defer map init until after the modal is visible so Leaflet can measure dimensions
+    requestAnimationFrame(() => renderJourneyMap(entries));
+  }
 }
 
 function resetEntryForm() {
