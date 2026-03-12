@@ -414,7 +414,7 @@ function openModal() {
               <span class="entry-field-label">City</span>
               <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
             </div>
-            <div class="entry-field entry-field--right">
+            <div class="entry-field">
               <span class="entry-field-label">Date</span>
               <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
             </div>
