@@ -360,11 +360,11 @@ async function loadBooks() {
     const safeIsbn = escapeHtml(book.isbn);
     return `
       <tr id="book-row-${safeIsbn}">
-        <td class="td-title">${escapeHtml(book.title)}</td>
-        <td class="td-author">${escapeHtml(book.author)}</td>
-        <td class="td-isbn">${safeIsbn}</td>
-        <td class="td-isbn" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
-        <td class="td-count">${count}</td>
+        <td class="td-title" data-label="Title">${escapeHtml(book.title)}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(book.author)}</td>
+        <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
+        <td class="td-count" data-label="Entries">${count}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
           <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
@@ -459,14 +459,13 @@ function startEditBook(isbn) {
   const row = document.getElementById(`book-row-${safeIsbn}`);
   row.className = 'edit-row';
   row.innerHTML = `
-    <td><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
-    <td><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
-    <td class="td-isbn">${safeIsbn}</td>
-    <td>
+    <td data-label="Title"><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
+    <td data-label="Author"><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
+    <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+    <td data-label="Passcode">
       <input id="edit-passcode-${safeIsbn}" value="${escapeHtml(book.passcode || '')}" placeholder="6 digits" maxlength="6" inputmode="numeric" style="text-align:center; font-size:14px; letter-spacing:0.15em; width:80px;" />
     </td>
-    <td class="td-count">—</td>
-    <td>
+    <td data-label="Cover URL">
       <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
     </td>
     <td class="td-actions">
@@ -533,10 +532,10 @@ async function loadEntries() {
 
   const rows = data.map(entry => `
     <tr>
-      <td class="td-title" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
-      <td class="td-location">${escapeHtml(entry.found_location)}</td>
-      <td class="td-message">${escapeHtml(entry.message || '—')}</td>
-      <td class="td-date">${formatDate(entry.found_date || entry.created_at)}</td>
+      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
+      <td class="td-location" data-label="Found at">${escapeHtml(entry.found_location)}</td>
+      <td class="td-message" data-label="Message">${escapeHtml(entry.message || '—')}</td>
+      <td class="td-date" data-label="Date">${formatDate(entry.found_date || entry.created_at)}</td>
       <td class="td-actions">
         <button class="btn-action btn-delete" onclick="deleteEntry('${entry.id}')">Delete</button>
       </td>
