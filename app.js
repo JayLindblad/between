@@ -620,7 +620,7 @@ function resetEntryForm() {
       </div>
     </div>
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
-    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
+    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Submit</button>
   `;
   initLocationAutocomplete();
 
