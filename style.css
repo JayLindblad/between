@@ -546,9 +546,10 @@ h1 em {
 
 .modal-book-description {
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.65;
   color: var(--ink-light);
-  margin: 0 0 20px;
+  font-style: italic;
+  margin: 6px 0 0;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
