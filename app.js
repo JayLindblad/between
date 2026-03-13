@@ -41,6 +41,7 @@ function normalizeISBN(raw) {
 // ── State ──
 let books = [];
 let currentBook = null;
+const descriptionCache = {}; // isbn → Promise<string|null>
 let journeyMap = null;
 let geocodeSession = 0;
 const geocodeCache = {};
@@ -350,6 +351,7 @@ async function lookupISBN(isbnDirect) {
 
   if (data) {
     currentBook = data;
+    prefetchBookDescription(data.isbn);
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
     const coverImg = document.getElementById('resultCover');
@@ -403,6 +405,7 @@ async function openBookDirect(bookIsbn) {
   }
 
   currentBook = data;
+  prefetchBookDescription(data.isbn);
   openModal();
 }
 
@@ -430,6 +433,12 @@ async function fetchBookDescription(isbn) {
   }
 }
 
+function prefetchBookDescription(isbn) {
+  if (!descriptionCache[isbn]) {
+    descriptionCache[isbn] = fetchBookDescription(isbn);
+  }
+}
+
 // ── Modal ──
 function openModal() {
   if (!currentBook) return;
@@ -443,16 +452,19 @@ function openModal() {
   const descToggle = document.getElementById('modalDescToggle');
   descEl.textContent = '';
   descEl.classList.remove('expanded');
+  descBlock.classList.remove('visible');
   descToggle.textContent = 'Read more';
   descToggle.style.display = 'none';
   descBlock.style.display = 'none';
-  fetchBookDescription(b.isbn).then(desc => {
+  (descriptionCache[b.isbn] || fetchBookDescription(b.isbn)).then(desc => {
     if (!desc) return;
     descEl.textContent = desc;
     descBlock.style.display = '';
-    requestAnimationFrame(() => {
+    // Double rAF: first lets display:'' take effect, second triggers the transition
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      descBlock.classList.add('visible');
       descToggle.style.display = descEl.scrollHeight > descEl.offsetHeight ? '' : 'none';
-    });
+    }));
   });
   const modalCover = document.getElementById('modalCover');
   modalCover.src = bookCoverUrl(b.isbn, b.cover_url);

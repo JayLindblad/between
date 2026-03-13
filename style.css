@@ -548,6 +548,13 @@ h1 em {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.modal-description-block.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .modal-book-description {
