@@ -605,7 +605,7 @@ function resetEntryForm() {
       <input class="form-input" id="entryLocationDesc" type="text" placeholder="On a park bench, tucked behind the coffee shop shelf…" />
     </div>
     <div class="form-field">
-      <label class="form-label">When did you find it? <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+      <label class="form-label">When did you find it?</label>
       <input class="form-input" id="entryDate" type="date" />
     </div>
     <div class="form-field">
@@ -837,6 +837,12 @@ async function submitEntry() {
   if (!locationPlace) {
     errorEl.textContent = 'Please enter a city or place name for the map.';
     document.getElementById('entryLocationPlace').focus();
+    return;
+  }
+
+  if (!foundAt) {
+    errorEl.textContent = 'Please enter the date you found it.';
+    document.getElementById('entryDate').focus();
     return;
   }
 
