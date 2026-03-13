@@ -410,23 +410,32 @@ async function openBookDirect(bookIsbn) {
 }
 
 // ── Book description (Google Books API) ──
+function sanitizeDescription(text) {
+  if (!text) return null;
+  return text
+    .replace(/<[^>]*>/g, '')           // strip HTML tags
+    .replace(/\[([^\]|]+)\|[^\]]+\]/g, '$1') // wikilinks: [text|url] → text
+    .replace(/\[[^\]]*\]/g, '')        // remaining [brackets]
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // **bold** → plain
+    .replace(/\*([^*]+)\*/g, '$1')     // *italic* → plain
+    .replace(/-{4,}/g, '')             // ---- separators
+    .replace(/\n{3,}/g, '\n\n')        // collapse excess blank lines
+    .trim();
+}
+
 async function fetchBookDescription(isbn) {
   try {
-    // Step 1: resolve ISBN → work key
-    const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
-    if (!editionRes.ok) { debugLog(`description: edition lookup failed (${editionRes.status})`, 'warn'); return null; }
-    const edition = await editionRes.json();
-    const workKey = edition.works?.[0]?.key;
-    if (!workKey) { debugLog('description: no work key found'); return null; }
-
-    // Step 2: fetch description from the work record
-    const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
-    if (!workRes.ok) { debugLog(`description: work lookup failed (${workRes.status})`, 'warn'); return null; }
-    const work = await workRes.json();
-    const desc = work.description;
-    const text = typeof desc === 'string' ? desc : (desc?.value || null);
-    debugLog(`description: ${text ? 'found (' + text.length + ' chars)' : 'not found'}`);
-    return text;
+    debugLog(`description: fetching for isbn=${isbn}`);
+    const res = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
+    if (!res.ok) { debugLog(`description: search failed (${res.status})`, 'warn'); return null; }
+    const data = await res.json();
+    const doc = data.docs?.[0];
+    if (!doc) { debugLog('description: no results from search'); return null; }
+    const raw = doc.description;
+    const text = typeof raw === 'string' ? raw : (raw?.value || null);
+    const clean = sanitizeDescription(text);
+    debugLog(`description: ${clean ? 'found (' + clean.length + ' chars)' : 'not found'}`);
+    return clean;
   } catch (err) {
     debugLog(`description: fetch failed — ${err.message}`, 'error');
     return null;
