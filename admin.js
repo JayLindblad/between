@@ -330,7 +330,7 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode'),
+    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode, description'),
     db.from('entries').select('isbn')
   ]);
 
@@ -365,6 +365,7 @@ async function loadBooks() {
         <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
         <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
         <td class="td-count" data-label="Entries">${count}</td>
+        <td class="td-message" data-label="Description" style="max-width:220px; font-style:${book.description ? 'normal' : 'italic'}; color:${book.description ? 'inherit' : 'var(--ink-faint)'};">${book.description ? escapeHtml(book.description.length > 120 ? book.description.slice(0, 120) + '…' : book.description) : 'none'}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
           <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
@@ -382,6 +383,7 @@ async function loadBooks() {
           <th>ISBN</th>
           <th style="text-align:center;">Passcode</th>
           <th style="text-align:center;">Entries</th>
+          <th>Description</th>
           <th></th>
         </tr>
       </thead>
@@ -468,6 +470,9 @@ function startEditBook(isbn) {
     <td data-label="Cover URL">
       <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
     </td>
+    <td data-label="Description" style="min-width:200px;">
+      <textarea id="edit-description-${safeIsbn}" placeholder="Auto-fetched — clear to re-fetch" rows="3" style="width:100%; font-size:12px; resize:vertical;">${escapeHtml(book.description || '')}</textarea>
+    </td>
     <td class="td-actions">
       <button class="btn-action btn-edit" onclick="saveEditBook('${safeIsbn}')">Save</button>
       <button class="btn-action btn-delete" onclick="loadBooks()">Cancel</button>
@@ -481,12 +486,13 @@ async function saveEditBook(isbn) {
   const author = document.getElementById(`edit-author-${safeIsbn}`).value.trim();
   const cover_url = document.getElementById(`edit-cover-${safeIsbn}`).value.trim() || null;
   const passcode = document.getElementById(`edit-passcode-${safeIsbn}`).value.trim() || null;
+  const description = document.getElementById(`edit-description-${safeIsbn}`).value.trim() || null;
 
   if (!title || !author) return;
 
   const { error } = await db
     .from('books')
-    .update({ title, author, cover_url, passcode })
+    .update({ title, author, cover_url, passcode, description })
     .eq('isbn', isbn);
 
   if (error) {
@@ -514,7 +520,7 @@ async function deleteBook(isbn, title) {
 async function loadEntries() {
   const { data, error } = await db
     .from('entries')
-    .select('id, found_location, message, found_date, created_at, books(title)')
+    .select('id, found_location, location_description, message, found_date, created_at, photo_url, books(title)')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -533,9 +539,15 @@ async function loadEntries() {
   const rows = data.map(entry => `
     <tr>
       <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
-      <td class="td-location" data-label="Found at">${escapeHtml(entry.found_location)}</td>
+      <td class="td-location" data-label="Found at">
+        ${escapeHtml(entry.found_location)}
+        ${entry.location_description ? `<div style="font-size:12px; font-style:italic; color:var(--ink-faint); margin-top:2px;">${escapeHtml(entry.location_description)}</div>` : ''}
+      </td>
       <td class="td-message" data-label="Message">${escapeHtml(entry.message || '—')}</td>
       <td class="td-date" data-label="Date">${formatDate(entry.found_date || entry.created_at)}</td>
+      <td data-label="Photo" style="text-align:center;">
+        ${entry.photo_url ? `<a href="${escapeHtml(entry.photo_url)}" target="_blank" rel="noopener"><img src="${escapeHtml(entry.photo_url)}" alt="" style="height:48px; width:48px; object-fit:cover; border:1px solid var(--border); display:block;" loading="lazy" /></a>` : '<span style="color:var(--ink-faint); font-style:italic; font-size:13px;">—</span>'}
+      </td>
       <td class="td-actions">
         <button class="btn-action btn-delete" onclick="deleteEntry('${entry.id}')">Delete</button>
       </td>
@@ -550,6 +562,7 @@ async function loadEntries() {
           <th>Found at</th>
           <th>Message</th>
           <th>Date</th>
+          <th style="text-align:center;">Photo</th>
           <th></th>
         </tr>
       </thead>
