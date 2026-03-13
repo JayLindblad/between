@@ -27,6 +27,12 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function transformImageUrl(url, width, quality) {
+  if (!url) return url;
+  const transformed = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  return `${transformed}?width=${width}&quality=${quality}`;
+}
+
 function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
@@ -421,7 +427,7 @@ function openModal() {
           </div>
           ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
           ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
-          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(entry.photo_url)}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(entry.photo_url)}')">` : ''}
+          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(transformImageUrl(entry.photo_url, 800, 75))}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(transformImageUrl(entry.photo_url, 1600, 85))}')" >` : ''}
         </div>
       </div>
     `).join('');
