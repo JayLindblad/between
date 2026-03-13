@@ -27,6 +27,13 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function transformImageUrl(url, width, quality, height) {
+  if (!url) return url;
+  const transformed = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  const h = height ? `&height=${height}` : '';
+  return `${transformed}?width=${width}${h}&quality=${quality}&resize=contain`;
+}
+
 function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
@@ -80,22 +87,19 @@ function buildArcPath(latlng1, latlng2, segIndex) {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist < 0.0001) return [p1, p2];
 
-  // Arc control point — alternates sides each segment for visual variety
-  const side = segIndex % 2 === 0 ? 1 : -1;
-  const arc = dist * 0.18 * side;
+  const arc = dist * 0.18;
   const cx = (p1[0] + p2[0]) / 2 - (dy / dist) * arc;
   const cy = (p1[1] + p2[1]) / 2 + (dx / dist) * arc;
 
-  const steps = 28;
-  const wobble = dist * 0.012;
+  const steps = 20;
   const pts = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const mt = 1 - t;
-    const lat = mt * mt * p1[0] + 2 * mt * t * cx + t * t * p2[0];
-    const lng = mt * mt * p1[1] + 2 * mt * t * cy + t * t * p2[1];
-    const w = Math.sin(t * 13.1 + segIndex * 7.3) * wobble;
-    pts.push([lat + w * (-dy / dist), lng + w * (dx / dist)]);
+    pts.push([
+      mt * mt * p1[0] + 2 * mt * t * cx + t * t * p2[0],
+      mt * mt * p1[1] + 2 * mt * t * cy + t * t * p2[1]
+    ]);
   }
   return pts;
 }
@@ -115,7 +119,16 @@ async function renderJourneyMap(entries) {
   console.log(`[map] init session=${session}, entries=${entries.length}`);
 
   try {
-    journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+    journeyMap = L.map(mapEl, {
+      scrollWheelZoom: false,
+      preferCanvas: true,      // single <canvas> for all vectors instead of per-element SVG nodes
+      zoomControl: false,      // display-only map, no zoom UI needed
+      keyboard: false,         // skip keyboard nav setup
+      boxZoom: false,          // skip shift-drag zoom setup
+      doubleClickZoom: false,  // skip double-click zoom setup
+      fadeAnimation: false,    // tiles appear immediately, no fade-in
+      trackResize: false       // modal doesn't resize with the window
+    });
     journeyMap.invalidateSize(); // force re-measure in case container was display:none
     console.log('[map] L.map() ok, size after invalidate:', journeyMap.getSize());
   } catch (err) {
@@ -125,36 +138,54 @@ async function renderJourneyMap(entries) {
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19
+    maxZoom: 19,
+    updateWhenIdle: true,  // only load tiles when panning stops, not continuously
+    keepBuffer: 1          // preload 1 row/col of offscreen tiles instead of default 2
   }).addTo(journeyMap);
 
   Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  // Phase 1: geocode all locations first
-  const resolved = []; // { entryIndex, entry, coords }
+  // Phase 1a: synchronously collect entries with stored coords
+  const resolved = [];
+  const toGeocode = [];
   for (let i = 0; i < sorted.length; i++) {
-    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
-    if (!entry.found_location) { console.log(`[map] entry ${i} has no location, skipping`); continue; }
-    if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
-
-    const coords = await geocodeLocation(entry.found_location);
-    if (geocodeSession !== session) return;
-    if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
-    resolved.push({ entryIndex: i, entry, coords });
+    if (!entry.found_location) continue;
+    if (entry.lat != null && entry.lng != null) {
+      resolved.push({ entryIndex: i, entry, coords: { lat: entry.lat, lng: entry.lng } });
+    } else {
+      toGeocode.push({ entryIndex: i, entry });
+    }
   }
+
+  // Set initial map view immediately from stored coords so tiles start loading now
+  if (resolved.length > 0) {
+    const bounds = L.latLngBounds(resolved.map(r => [r.coords.lat, r.coords.lng]));
+    journeyMap.fitBounds(bounds.pad(0.3), { animate: false });
+    console.log(`[map] initial fitBounds from ${resolved.length} stored coord(s)`);
+  }
+
+  // Phase 1b: geocode remaining entries in parallel — no sequential delays
+  if (toGeocode.length > 0) {
+    const results = await Promise.all(
+      toGeocode.map(({ entryIndex, entry }) =>
+        geocodeLocation(entry.found_location).then(coords => ({ entryIndex, entry, coords }))
+      )
+    );
+    if (geocodeSession !== session) return;
+    for (const { entryIndex, entry, coords } of results) {
+      if (!coords) { console.warn(`[map] no coords for "${entry.found_location}"`); continue; }
+      resolved.push({ entryIndex, entry, coords });
+      // Write coords back to Supabase so future loads skip geocoding entirely
+      supabase.from('entries').update({ lat: coords.lat, lng: coords.lng }).eq('id', entry.id)
+        .then(({ error }) => { if (error) console.warn('[map] failed to write back coords:', error.message); });
+    }
+  }
+  resolved.sort((a, b) => a.entryIndex - b.entryIndex);
 
   // Phase 2: draw path first (so it's behind markers in SVG z-order — no bringToBack needed)
   if (resolved.length > 1) {
-    if (!document.getElementById('journey-svg-defs')) {
-      const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svgDefs.id = 'journey-svg-defs';
-      svgDefs.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
-      svgDefs.innerHTML = `<defs><filter id="journey-roughen" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>`;
-      document.body.appendChild(svgDefs);
-    }
     const latlngs = resolved.map(r => [r.coords.lat, r.coords.lng]);
     const allPoints = [];
     for (let i = 0; i < latlngs.length - 1; i++) {
@@ -167,7 +198,8 @@ async function renderJourneyMap(entries) {
       weight: 2,
       opacity: 0.75,
       dashArray: '5 9',
-      className: 'journey-path'
+      className: 'journey-path',
+      renderer: L.svg()  // SVG renderer so CSS stroke-dashoffset animation works
     }).addTo(journeyMap);
     console.log(`[map] path drawn with ${allPoints.length} points`);
   }
@@ -195,7 +227,7 @@ async function renderJourneyMap(entries) {
   console.log(`[map] placed ${markers.length} marker(s)`);
   if (markers.length > 0) {
     try {
-      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3), { animate: false });
       console.log('[map] fitBounds ok');
     } catch (err) {
       console.error('[map] fitBounds threw:', err);
@@ -334,10 +366,12 @@ async function lookupISBN(isbnDirect) {
     resultEl.classList.add('visible');
   } else {
     currentBook = null;
-    document.getElementById('resultTitle').textContent = "Not in our library yet";
-    document.getElementById('resultAuthor').textContent = "This book hasn't been registered with Between Readers. If you found a sticker on it, check back soon.";
+    document.getElementById('resultTitle').textContent = "Not part of Between Readers";
+    document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
     document.getElementById('resultStops').textContent = "";
     document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('resultCover').style.display = 'none';
+    document.getElementById('resultCoverPlaceholder').style.display = 'flex';
     resultEl.classList.add('visible');
   }
 }
@@ -408,11 +442,18 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
-            <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
-            <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
+            <div class="entry-field">
+              <span class="entry-field-label">City</span>
+              <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
+            </div>
+            <div class="entry-field">
+              <span class="entry-field-label">Date</span>
+              <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
+            </div>
           </div>
-          ${entry.location_description ? `<p class="entry-location-desc">${escapeHtml(entry.location_description)}</p>` : ''}
-          <p class="entry-message">${escapeHtml(entry.message || '')}</p>
+          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
+          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
+          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(transformImageUrl(entry.photo_url, 800, 75, 400))}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(transformImageUrl(entry.photo_url, 1600, 85))}')" >` : ''}
         </div>
       </div>
     `).join('');
@@ -456,15 +497,25 @@ function resetEntryForm() {
     </div>
     <div class="form-field">
       <label class="form-label">A photo (optional)</label>
-      <div class="photo-upload" onclick="this.querySelector('input').click()">
-        <p class="photo-upload-text">📷 &nbsp; Tap to add a photo</p>
-        <input type="file" accept="image/*" style="display:none" />
+      <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
+        <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
+        <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
     <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
   `;
   initLocationAutocomplete();
+
+  // Show filename when photo is selected
+  const fileInput = document.getElementById('photoFileInput');
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const label = document.getElementById('photoUploadText');
+      if (file && label) label.textContent = '✓ ' + file.name;
+    });
+  }
 }
 
 // ── Location autocomplete ──
@@ -567,6 +618,61 @@ function updateActiveSuggestion(items) {
   items.forEach((item, i) => item.classList.toggle('active', i === autocompleteActive));
 }
 
+// ── Passcode modal ──
+function openPasscodeModal() {
+  if (!currentBook) return;
+  // If no passcode is set on this book, open the journey directly
+  if (!currentBook.passcode) {
+    openModal();
+    return;
+  }
+  document.getElementById('passcodeBookTitle').textContent = currentBook.title;
+  document.getElementById('passcodeInput').value = '';
+  document.getElementById('passcodeError').textContent = '';
+  document.getElementById('passcodeOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('passcodeInput').focus(), 50);
+}
+
+function closePasscodeModal() {
+  document.getElementById('passcodeOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handlePasscodeOverlayClick(e) {
+  if (e.target === document.getElementById('passcodeOverlay')) closePasscodeModal();
+}
+
+function verifyPasscode() {
+  const input = document.getElementById('passcodeInput').value.trim();
+  const errorEl = document.getElementById('passcodeError');
+
+  if (!input) {
+    errorEl.textContent = 'Please enter the passcode.';
+    return;
+  }
+
+  if (input !== String(currentBook.passcode)) {
+    errorEl.textContent = 'Incorrect passcode. Check the inside cover of the book.';
+    document.getElementById('passcodeInput').select();
+    return;
+  }
+
+  closePasscodeModal();
+  openModal();
+}
+
+// Helper called by scanner.js when a scanned ISBN is not in the database
+function showNotFoundResult() {
+  document.getElementById('resultTitle').textContent = "Not part of Between Readers";
+  document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
+  document.getElementById('resultStops').textContent = '';
+  document.getElementById('viewJourneyBtn').style.display = 'none';
+  document.getElementById('resultCover').style.display = 'none';
+  document.getElementById('resultCoverPlaceholder').style.display = 'flex';
+  document.getElementById('bookResult').classList.add('visible');
+}
+
 function closeModal() {
   geocodeSession++; // cancel any in-progress geocoding
   if (journeyMap) { journeyMap.remove(); journeyMap = null; }
@@ -578,6 +684,18 @@ function closeModal() {
 
 function handleOverlayClick(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function openPhotoModal(url) {
+  const lightbox = document.getElementById('photoLightbox');
+  document.getElementById('photoLightboxImg').src = url;
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePhotoModal() {
+  document.getElementById('photoLightbox').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── Submit entry ──
@@ -601,6 +719,31 @@ async function submitEntry() {
   btn.textContent = 'Leaving your mark…';
   btn.disabled = true;
 
+  // Upload photo if one was selected
+  let photo_url = null;
+  const fileInput = document.getElementById('photoFileInput');
+  const file = fileInput?.files?.[0] || null;
+  if (file) {
+    const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+    const path = `${currentBook.isbn}/${Date.now()}.${ext}`;
+    if (typeof debugLog === 'function') debugLog(`photo: uploading ${file.name} (${Math.round(file.size/1024)}KB) → ${path}`);
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('entry-photos')
+      .upload(path, file, { contentType: file.type });
+    if (uploadError) {
+      if (typeof debugLog === 'function') debugLog('photo upload failed: ' + uploadError.message + ' (code: ' + (uploadError.statusCode || '?') + ')', 'error');
+    } else {
+      const { data: urlData } = supabase.storage.from('entry-photos').getPublicUrl(path);
+      photo_url = urlData.publicUrl;
+      if (typeof debugLog === 'function') debugLog('photo upload ok → ' + photo_url);
+    }
+  } else {
+    if (typeof debugLog === 'function') debugLog('photo: no file selected');
+  }
+
+  // Geocode location at submission time so the map loads instantly on future views
+  const coords = await geocodeLocation(locationPlace);
+  if (typeof debugLog === 'function') debugLog(`entry insert: photo_url=${photo_url ? 'set' : 'null'}, coords=${coords ? `${coords.lat},${coords.lng}` : 'null'}`);
   const { error } = await supabase
     .from('entries')
     .insert({
@@ -608,7 +751,10 @@ async function submitEntry() {
       found_location: locationPlace,
       location_description: locationDesc || null,
       message: message || null,
-      found_date: foundAt
+      photo_url,
+      found_date: foundAt,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null
     });
 
   if (error) {
@@ -633,6 +779,11 @@ async function submitEntry() {
 
   setTimeout(() => closeModal(), 2500);
 }
+
+// Enter key on passcode input
+document.getElementById('passcodeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') verifyPasscode();
+});
 
 // ── Init ──
 loadAndRenderCatalog();

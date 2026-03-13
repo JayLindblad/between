@@ -325,7 +325,7 @@ h1 em {
 .book-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 2px;
+  gap: 20px;
 }
 
 .book-card {
@@ -545,6 +545,7 @@ h1 em {
 }
 
 .modal-release-note {
+  margin-top: 28px;
   background: white;
   border-left: 3px solid var(--gold);
   padding: 16px 20px;
@@ -563,6 +564,111 @@ h1 em {
   color: var(--ink-faint);
 }
 
+/* ── PASSCODE MODAL ── */
+.passcode-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 22, 18, 0.7);
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(4px);
+}
+
+.passcode-overlay.open { display: flex; }
+
+.passcode-modal {
+  background: var(--cream);
+  max-width: 400px;
+  width: 100%;
+  padding: 48px 40px 40px;
+  position: relative;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  animation: fadeUp 0.35s ease forwards;
+  text-align: center;
+}
+
+.passcode-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+}
+
+.passcode-eyebrow {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 12px;
+}
+
+.passcode-book-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+
+.passcode-prompt {
+  font-size: 15px;
+  font-style: italic;
+  color: var(--ink-faint);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.passcode-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: white;
+  padding: 14px 18px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 30px;
+  letter-spacing: 0.5em;
+  text-align: center;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 8px;
+}
+
+.passcode-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(184,134,11,0.15);
+}
+
+.passcode-error {
+  min-height: 20px;
+  color: var(--rust);
+  font-style: italic;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.passcode-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--rust);
+  color: var(--cream);
+  border: none;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.passcode-btn:hover { background: var(--ink); }
+
 /* Journey entries */
 .modal-body { padding: 32px 40px; }
 
@@ -579,24 +685,18 @@ h1 em {
   display: grid;
   grid-template-columns: 48px 1fr;
   gap: 0 20px;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
   position: relative;
-}
-
-.journey-entry:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  left: 23px;
-  top: 48px;
-  bottom: -16px;
-  width: 1px;
-  background: var(--border);
+  background: white;
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+  align-items: start;
 }
 
 .entry-number {
   width: 48px;
   height: 48px;
-  background: white;
+  background: var(--cream);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -605,6 +705,30 @@ h1 em {
   font-size: 18px;
   color: var(--ink-faint);
   flex-shrink: 0;
+}
+
+
+.entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.entry-field:last-child { margin-bottom: 0; }
+
+
+.entry-field-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.entry-location-desc,
+.entry-message {
+  margin: 0;
 }
 
 .entry-header {
@@ -644,7 +768,6 @@ h1 em {
   font-style: italic;
   font-size: 14px;
   color: var(--ink-faint);
-  margin: 2px 0 6px;
   line-height: 1.4;
 }
 
@@ -652,7 +775,7 @@ h1 em {
   font-size: 16px;
   line-height: 1.65;
   color: var(--ink-light);
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .entry-photo {
@@ -661,6 +784,42 @@ h1 em {
   object-fit: cover;
   border: 1px solid var(--border);
   display: block;
+  cursor: zoom-in;
+}
+
+/* Photo lightbox */
+.photo-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(10, 8, 6, 0.93);
+  align-items: center;
+  justify-content: center;
+}
+.photo-lightbox.open {
+  display: flex;
+}
+.photo-lightbox-img {
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  display: block;
+}
+.photo-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: none;
+  border: none;
+  color: var(--color-cream);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.8;
+}
+.photo-lightbox-close:hover {
+  opacity: 1;
 }
 
 /* Add entry form */
@@ -744,6 +903,9 @@ h1 em {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  min-height: 46px;
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid var(--border);
   background: var(--cream);
   padding: 11px 14px;
@@ -1034,10 +1196,44 @@ footer {
 
 /* Responsive */
 @media (max-width: 600px) {
+  .isbn-input-row {
+    flex-direction: column;
+    border: none;
+    gap: 8px;
+    overflow: visible;
+    box-shadow: none !important;
+  }
+  .isbn-input {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    transition: box-shadow 0.2s;
+  }
+  .isbn-input:focus {
+    box-shadow: 0 0 0 2px var(--gold-light);
+    border-color: var(--gold);
+    outline: none;
+  }
+  .isbn-btn { border-radius: 2px; }
   .modal-top, .modal-body, .add-entry-section { padding-left: 24px; padding-right: 24px; }
   .book-grid { grid-template-columns: 1fr; }
   .book-result-inner { flex-direction: column; }
   .modal-cover-img { width: 64px; min-width: 64px; height: 90px; }
+
+  /* Stack entry number above content on mobile */
+  .journey-entry {
+    grid-template-columns: 1fr;
+    gap: 12px 0;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .journey-entry:not(:last-child)::before { display: none; }
+  .entry-number {
+    width: 100%;
+    height: 40px;
+    font-size: 18px;
+    justify-content: center;
+  }
+  .book-grid { gap: 16px; }
 }
 
 @keyframes journeyDash {
@@ -1046,7 +1242,6 @@ footer {
 
 .journey-path {
   animation: journeyDash 1s linear infinite;
-  filter: url(#journey-roughen);
 }
 
 /* ── Journey Map ── */

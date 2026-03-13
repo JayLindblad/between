@@ -15,7 +15,7 @@
 
   <!-- HEADER -->
   <header>
-    <p class="header-ornament">A Library in Motion</p>
+    <p class="header-ornament">A Library of Stories</p>
     <h1>Between<br><em>Readers</em></h1>
     <p class="tagline">Every book has a story. This is where it continues.</p>
     <div class="rule header-rule">✦</div>
@@ -25,7 +25,7 @@
   <section class="scanner-section">
     <p class="scanner-label">Found a book with one of our stickers?</p>
     <div class="scanner-box">
-      <p class="scanner-prompt">Scan the barcode or enter the ISBN</p>
+      <p class="scanner-prompt">Scan barcode or enter ISBN</p>
 
       <button class="scan-btn" onclick="openCamera()" style="margin: 0 auto 20px; display:flex;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -59,7 +59,7 @@
             <span class="journey-count" id="resultStops">— stops along the way</span>
           </div>
         </div>
-        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openModal()">
+        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openPasscodeModal()">
           Read Its Journey →
         </button>
       </div>
@@ -70,8 +70,8 @@
   <section class="catalog-section">
     <div class="section-header">
       <div class="rule" style="max-width:300px; margin: 0 auto 16px;">✦</div>
-      <h2 class="section-title">Books in the Wild</h2>
-      <p class="section-subtitle">Each one out there, somewhere, waiting to be found</p>
+      <h2 class="section-title">Travelling Copies</h2>
+      <p class="section-subtitle">Out there, somewhere, waiting to be found...</p>
     </div>
     <div class="book-grid" id="bookGrid"></div>
   </section>
@@ -82,8 +82,7 @@
       <div class="rule" style="margin-bottom: 32px;">✦</div>
       <h2 class="section-title">How It Works</h2>
       <p class="about-text">
-        A book is left somewhere — a park bench, a coffee shop, a train seat. Inside the cover is a small sticker with an address. You're reading this, so you probably found one.
-      </p>
+        A book is left somewhere — a park bench, a coffee shop, a train seat. Inside the cover is a small sticker with an address.
       <p class="about-text">
         Every book has a page here. Its journey is the record of every person who found it, where they were, and what they wanted to say.
       </p>
@@ -119,6 +118,25 @@
     </div>
     <p class="camera-status" id="cameraStatus">Align barcode within the frame</p>
     <button class="camera-close" onclick="closeCamera()">Cancel</button>
+  </div>
+
+  <!-- PASSCODE MODAL -->
+  <div class="passcode-overlay" id="passcodeOverlay" onclick="handlePasscodeOverlayClick(event)">
+    <div class="passcode-modal">
+      <button class="modal-close" onclick="closePasscodeModal()">✕</button>
+      <p class="passcode-eyebrow">Between Readers</p>
+      <h3 class="passcode-book-title" id="passcodeBookTitle">—</h3>
+      <p class="passcode-prompt">Enter the 6-digit passcode written inside the cover to read this book's journey.</p>
+      <input class="passcode-input" id="passcodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="off" />
+      <p class="passcode-error" id="passcodeError"></p>
+      <button class="passcode-btn" onclick="verifyPasscode()">Unlock Journey</button>
+    </div>
+  </div>
+
+  <!-- PHOTO LIGHTBOX -->
+  <div class="photo-lightbox" id="photoLightbox" onclick="closePhotoModal()">
+    <button class="photo-lightbox-close" onclick="closePhotoModal()">✕</button>
+    <img class="photo-lightbox-img" id="photoLightboxImg" src="" alt="">
   </div>
 
   <!-- JOURNEY MODAL -->

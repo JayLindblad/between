@@ -28,6 +28,207 @@ function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
 
+// ── ISBN metadata auto-fill ──
+async function autoFillIsbn() {
+  const isbn = normalizeISBN(document.getElementById('newIsbn').value.trim());
+  const statusEl = document.getElementById('isbnLookupStatus');
+
+  if (!/^\d{13}$/.test(isbn)) {
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.style.color = 'var(--ink-faint)';
+  statusEl.textContent = 'Looking up…';
+
+  // ── Open Library ──
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+    );
+    const data = await res.json();
+    const book = data[`ISBN:${isbn}`];
+
+    if (book) {
+      if (book.title) document.getElementById('newTitle').value = book.title;
+      if (book.authors?.length)
+        document.getElementById('newAuthor').value = book.authors.map(a => a.name).join(', ');
+      const cover = book.cover?.large || book.cover?.medium || book.cover?.small || '';
+      if (cover) document.getElementById('newCoverUrl').value = cover;
+      statusEl.style.color = 'var(--gold)';
+      statusEl.textContent = '✓ Filled from Open Library';
+      return;
+    }
+  } catch (_) { /* fall through */ }
+
+  // ── Google Books fallback ──
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`
+    );
+    const data = await res.json();
+    const vol = data.items?.[0]?.volumeInfo;
+
+    if (vol) {
+      if (vol.title) document.getElementById('newTitle').value = vol.title;
+      if (vol.authors?.length)
+        document.getElementById('newAuthor').value = vol.authors.join(', ');
+      if (vol.imageLinks?.thumbnail)
+        document.getElementById('newCoverUrl').value =
+          vol.imageLinks.thumbnail.replace('http://', 'https://').replace('&zoom=1', '&zoom=0');
+      statusEl.style.color = 'var(--gold)';
+      statusEl.textContent = '✓ Filled from Google Books';
+      return;
+    }
+  } catch (_) { /* fall through */ }
+
+  statusEl.style.color = 'var(--ink-faint)';
+  statusEl.textContent = 'Not found in public databases — enter details manually';
+}
+
+// ── Admin barcode scanner ──
+let adminScannerActive = false;
+let adminVideoStream = null;
+let adminScanInterval = null;
+let adminZxingReady = false;
+let adminReadBarcodesFn = null;
+
+async function initAdminZXing() {
+  if (adminZxingReady) return true;
+  try {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://fastly.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/reader/index.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    await ZXingWASM.prepareZXingModule({ fireImmediately: true });
+    adminReadBarcodesFn = ZXingWASM.readBarcodes;
+    adminZxingReady = true;
+    return true;
+  } catch (e) {
+    if (typeof debugLog === 'function') debugLog('ZXing load error: ' + e, 'error');
+    return false;
+  }
+}
+
+async function openAdminCamera() {
+  const overlay = document.getElementById('adminCameraOverlay');
+  const status = document.getElementById('adminCameraStatus');
+  const video = document.getElementById('adminCameraVideo');
+
+  overlay.classList.add('open');
+  status.className = '';
+  status.textContent = 'Starting camera…';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.className = 'error';
+    status.textContent = 'Camera not available — type the ISBN manually';
+    return;
+  }
+
+  try {
+    const [stream] = await Promise.all([
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      }),
+      initAdminZXing()
+    ]);
+
+    adminVideoStream = stream;
+    video.srcObject = stream;
+    await video.play();
+
+    if (!adminZxingReady) {
+      status.className = 'error';
+      status.textContent = 'Scanner unavailable — type the ISBN manually';
+      return;
+    }
+
+    status.textContent = 'Align barcode within the frame';
+    adminScannerActive = true;
+    startAdminScanLoop(video);
+
+  } catch (err) {
+    const denied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+    const noCamera = err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError';
+    status.className = 'error';
+    if (noCamera) { closeAdminCamera(); }
+    else status.textContent = denied ? 'Camera permission denied' : 'Camera unavailable — type the ISBN manually';
+  }
+}
+
+function startAdminScanLoop(video) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  adminScanInterval = setInterval(async () => {
+    if (!adminScannerActive || !adminZxingReady || video.readyState < 2 || !adminReadBarcodesFn) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return;
+
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+
+    try {
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+      if (!blob) return;
+      const results = await adminReadBarcodesFn(blob, {
+        tryHarder: true,
+        formats: ['EAN-13', 'EAN-8'],
+        maxNumberOfSymbols: 1
+      });
+      if (results && results.length > 0) {
+        const clean = results[0].text.replace(/\D/g, '');
+        if (clean.length === 13 && (clean.startsWith('978') || clean.startsWith('979'))) {
+          onAdminBarcodeDetected(clean);
+        }
+      }
+    } catch (_) {}
+  }, 300);
+}
+
+function onAdminBarcodeDetected(isbn) {
+  adminScannerActive = false;
+  const status = document.getElementById('adminCameraStatus');
+  status.className = 'success';
+  status.textContent = 'Found: ' + isbn;
+
+  const reticle = document.querySelector('#adminCameraOverlay .reticle-inner');
+  if (reticle) {
+    reticle.style.outline = '2px solid var(--gold-light)';
+    reticle.style.boxShadow = '0 0 24px rgba(212, 168, 67, 0.5)';
+  }
+
+  setTimeout(() => {
+    closeAdminCamera();
+    document.getElementById('newIsbn').value = isbn;
+    autoFillIsbn();
+  }, 700);
+}
+
+function closeAdminCamera() {
+  adminScannerActive = false;
+  clearInterval(adminScanInterval);
+  adminScanInterval = null;
+
+  if (adminVideoStream) {
+    adminVideoStream.getTracks().forEach(t => t.stop());
+    adminVideoStream = null;
+  }
+
+  const video = document.getElementById('adminCameraVideo');
+  if (video) video.srcObject = null;
+
+  document.getElementById('adminCameraOverlay').classList.remove('open');
+
+  const reticle = document.querySelector('#adminCameraOverlay .reticle-inner');
+  if (reticle) { reticle.style.outline = ''; reticle.style.boxShadow = ''; }
+}
+
 // ── Auth ──
 function showLoginScreen() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -129,14 +330,16 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by'),
+    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode'),
     db.from('entries').select('isbn')
   ]);
 
   const container = document.getElementById('booksTableContainer');
 
   if (booksResult.error) {
-    container.innerHTML = `<p class="empty-state">Failed to load books.</p>`;
+    const msg = booksResult.error.message || booksResult.error.code || JSON.stringify(booksResult.error);
+    if (typeof debugLog === 'function') debugLog('loadBooks error: ' + msg, 'error');
+    container.innerHTML = `<p class="empty-state">Failed to load books: ${msg}</p>`;
     return;
   }
 
@@ -157,10 +360,11 @@ async function loadBooks() {
     const safeIsbn = escapeHtml(book.isbn);
     return `
       <tr id="book-row-${safeIsbn}">
-        <td class="td-title">${escapeHtml(book.title)}</td>
-        <td class="td-author">${escapeHtml(book.author)}</td>
-        <td class="td-isbn">${safeIsbn}</td>
-        <td class="td-count">${count}</td>
+        <td class="td-title" data-label="Title">${escapeHtml(book.title)}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(book.author)}</td>
+        <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
+        <td class="td-count" data-label="Entries">${count}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
           <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
@@ -176,6 +380,7 @@ async function loadBooks() {
           <th>Title</th>
           <th>Author</th>
           <th>ISBN</th>
+          <th style="text-align:center;">Passcode</th>
           <th style="text-align:center;">Entries</th>
           <th></th>
         </tr>
@@ -199,10 +404,11 @@ function toggleAddBookForm() {
 }
 
 function clearAddBookForm() {
-  ['newIsbn','newTitle','newAuthor','newCoverUrl','newReleaseNote','newReleasedBy'].forEach(id => {
+  ['newIsbn','newTitle','newAuthor','newCoverUrl','newReleaseNote','newReleasedBy','newPasscode'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('addBookError').textContent = '';
+  document.getElementById('isbnLookupStatus').textContent = '';
 }
 
 async function addBook() {
@@ -212,6 +418,7 @@ async function addBook() {
   const cover_url = document.getElementById('newCoverUrl').value.trim() || null;
   const release_note = document.getElementById('newReleaseNote').value.trim() || null;
   const released_by = document.getElementById('newReleasedBy').value.trim() || null;
+  const passcode = document.getElementById('newPasscode').value.trim() || null;
   const errorEl = document.getElementById('addBookError');
 
   if (!isbn || !title || !author) {
@@ -224,11 +431,16 @@ async function addBook() {
     return;
   }
 
+  if (passcode && !/^\d{1,6}$/.test(passcode)) {
+    errorEl.textContent = 'Passcode must be up to 6 digits.';
+    return;
+  }
+
   errorEl.textContent = '';
 
   const { error } = await db
     .from('books')
-    .insert({ isbn, title, author, cover_url, release_note, released_by });
+    .insert({ isbn, title, author, cover_url, release_note, released_by, passcode });
 
   if (error) {
     errorEl.textContent = error.message;
@@ -247,11 +459,13 @@ function startEditBook(isbn) {
   const row = document.getElementById(`book-row-${safeIsbn}`);
   row.className = 'edit-row';
   row.innerHTML = `
-    <td><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
-    <td><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
-    <td class="td-isbn">${safeIsbn}</td>
-    <td class="td-count">—</td>
-    <td>
+    <td data-label="Title"><input id="edit-title-${safeIsbn}" value="${escapeHtml(book.title)}" /></td>
+    <td data-label="Author"><input id="edit-author-${safeIsbn}" value="${escapeHtml(book.author)}" /></td>
+    <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+    <td data-label="Passcode">
+      <input id="edit-passcode-${safeIsbn}" value="${escapeHtml(book.passcode || '')}" placeholder="6 digits" maxlength="6" inputmode="numeric" style="text-align:center; font-size:14px; letter-spacing:0.15em; width:80px;" />
+    </td>
+    <td data-label="Cover URL">
       <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
     </td>
     <td class="td-actions">
@@ -266,12 +480,13 @@ async function saveEditBook(isbn) {
   const title = document.getElementById(`edit-title-${safeIsbn}`).value.trim();
   const author = document.getElementById(`edit-author-${safeIsbn}`).value.trim();
   const cover_url = document.getElementById(`edit-cover-${safeIsbn}`).value.trim() || null;
+  const passcode = document.getElementById(`edit-passcode-${safeIsbn}`).value.trim() || null;
 
   if (!title || !author) return;
 
   const { error } = await db
     .from('books')
-    .update({ title, author, cover_url })
+    .update({ title, author, cover_url, passcode })
     .eq('isbn', isbn);
 
   if (error) {
@@ -317,10 +532,10 @@ async function loadEntries() {
 
   const rows = data.map(entry => `
     <tr>
-      <td class="td-title" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
-      <td class="td-location">${escapeHtml(entry.found_location)}</td>
-      <td class="td-message">${escapeHtml(entry.message || '—')}</td>
-      <td class="td-date">${formatDate(entry.found_date || entry.created_at)}</td>
+      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
+      <td class="td-location" data-label="Found at">${escapeHtml(entry.found_location)}</td>
+      <td class="td-message" data-label="Message">${escapeHtml(entry.message || '—')}</td>
+      <td class="td-date" data-label="Date">${formatDate(entry.found_date || entry.created_at)}</td>
       <td class="td-actions">
         <button class="btn-action btn-delete" onclick="deleteEntry('${entry.id}')">Delete</button>
       </td>
