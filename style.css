@@ -793,15 +793,23 @@ h1 em {
 
 .entry-location-link {
   cursor: pointer;
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin: -1px -5px;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  color: var(--rust);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--rust);
+  text-underline-offset: 3px;
+  transition: text-decoration-style 0.2s ease, opacity 0.2s ease;
+}
+
+.entry-location-link::before {
+  content: '⌖ ';
+  font-size: 0.8em;
+  opacity: 0.7;
 }
 
 .entry-location-link:hover {
-  color: var(--rust);
-  background-color: rgba(184, 134, 11, 0.13);
+  text-decoration-style: solid;
+  opacity: 0.8;
 }
 
 .entry-date {
