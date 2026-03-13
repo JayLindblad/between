@@ -409,11 +409,21 @@ async function openBookDirect(bookIsbn) {
 // ── Book description (Google Books API) ──
 async function fetchBookDescription(isbn) {
   try {
-    debugLog(`description: fetching for isbn=${isbn}`);
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`);
-    const data = await res.json();
-    debugLog(`description: totalItems=${data.totalItems}, hasDescription=${!!data.items?.[0]?.volumeInfo?.description}`);
-    return data.items?.[0]?.volumeInfo?.description || null;
+    // Step 1: resolve ISBN → work key
+    const editionRes = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+    if (!editionRes.ok) { debugLog(`description: edition lookup failed (${editionRes.status})`, 'warn'); return null; }
+    const edition = await editionRes.json();
+    const workKey = edition.works?.[0]?.key;
+    if (!workKey) { debugLog('description: no work key found'); return null; }
+
+    // Step 2: fetch description from the work record
+    const workRes = await fetch(`https://openlibrary.org${workKey}.json`);
+    if (!workRes.ok) { debugLog(`description: work lookup failed (${workRes.status})`, 'warn'); return null; }
+    const work = await workRes.json();
+    const desc = work.description;
+    const text = typeof desc === 'string' ? desc : (desc?.value || null);
+    debugLog(`description: ${text ? 'found (' + text.length + ' chars)' : 'not found'}`);
+    return text;
   } catch (err) {
     debugLog(`description: fetch failed — ${err.message}`, 'error');
     return null;
