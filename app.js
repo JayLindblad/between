@@ -169,17 +169,21 @@ async function renderJourneyMap(entries) {
     console.log(`[map] initial fitBounds from ${resolved.length} stored coord(s)`);
   }
 
-  // Phase 1b: geocode remaining entries (old entries missing lat/lng) in parallel with tile loading
-  let nominatimDelay = false;
-  for (const { entryIndex, entry } of toGeocode) {
-    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
-    if (nominatimDelay) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
-    const coords = await geocodeLocation(entry.found_location);
-    nominatimDelay = true;
+  // Phase 1b: geocode remaining entries in parallel — no sequential delays
+  if (toGeocode.length > 0) {
+    const results = await Promise.all(
+      toGeocode.map(({ entryIndex, entry }) =>
+        geocodeLocation(entry.found_location).then(coords => ({ entryIndex, entry, coords }))
+      )
+    );
     if (geocodeSession !== session) return;
-    if (!coords) { console.warn(`[map] no coords for "${entry.found_location}"`); continue; }
-    resolved.push({ entryIndex, entry, coords });
+    for (const { entryIndex, entry, coords } of results) {
+      if (!coords) { console.warn(`[map] no coords for "${entry.found_location}"`); continue; }
+      resolved.push({ entryIndex, entry, coords });
+      // Write coords back to Supabase so future loads skip geocoding entirely
+      supabase.from('entries').update({ lat: coords.lat, lng: coords.lng }).eq('id', entry.id)
+        .then(({ error }) => { if (error) console.warn('[map] failed to write back coords:', error.message); });
+    }
   }
   resolved.sort((a, b) => a.entryIndex - b.entryIndex);
 
