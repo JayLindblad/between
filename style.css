@@ -470,13 +470,11 @@ h1 em {
 
 .modal-overlay::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
-  min-height: 100dvh;
   background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  transform: translateZ(0);
   z-index: -1;
 }
 
@@ -636,13 +634,11 @@ h1 em {
 
 .passcode-overlay::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
-  min-height: 100dvh;
   background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  transform: translateZ(0);
   z-index: -1;
 }
 
