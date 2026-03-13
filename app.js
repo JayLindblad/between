@@ -426,9 +426,20 @@ function openModal() {
   document.getElementById('modalTitle').textContent = b.title;
   document.getElementById('modalAuthor').textContent = b.author;
   const descEl = document.getElementById('modalDescription');
+  const descBlock = document.getElementById('modalDescriptionBlock');
+  const descToggle = document.getElementById('modalDescToggle');
   descEl.textContent = '';
+  descEl.classList.remove('expanded');
+  descToggle.textContent = 'Read more';
+  descToggle.style.display = 'none';
+  descBlock.style.display = 'none';
   fetchBookDescription(b.isbn).then(desc => {
-    if (desc) descEl.textContent = desc;
+    if (!desc) return;
+    descEl.textContent = desc;
+    descBlock.style.display = '';
+    requestAnimationFrame(() => {
+      descToggle.style.display = descEl.scrollHeight > descEl.offsetHeight ? '' : 'none';
+    });
   });
   const modalCover = document.getElementById('modalCover');
   modalCover.src = bookCoverUrl(b.isbn, b.cover_url);
@@ -687,6 +698,13 @@ function showNotFoundResult() {
   document.getElementById('resultCover').style.display = 'none';
   document.getElementById('resultCoverPlaceholder').style.display = 'flex';
   document.getElementById('bookResult').classList.add('visible');
+}
+
+function toggleBookDescription() {
+  const descEl = document.getElementById('modalDescription');
+  const btn = document.getElementById('modalDescToggle');
+  const expanded = descEl.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Read less' : 'Read more';
 }
 
 function closeModal() {

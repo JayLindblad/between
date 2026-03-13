@@ -541,19 +541,46 @@ h1 em {
   font-style: italic;
   color: var(--ink-faint);
   font-size: 17px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
+}
+
+.modal-description-block {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .modal-book-description {
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--ink-light);
   font-style: italic;
-  margin: 6px 0 0;
+  margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.modal-book-description.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.description-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--rust);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+.description-toggle:hover {
+  text-decoration: underline;
 }
 
 .modal-release-note {
