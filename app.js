@@ -137,16 +137,25 @@ async function renderJourneyMap(entries) {
   Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  // Phase 1: geocode all locations first
+  // Phase 1: resolve coords — use stored lat/lng where available, geocode the rest
   const resolved = []; // { entryIndex, entry, coords }
+  let nominatimDelay = false;
   for (let i = 0; i < sorted.length; i++) {
     if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
     if (!entry.found_location) { console.log(`[map] entry ${i} has no location, skipping`); continue; }
-    if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
 
-    const coords = await geocodeLocation(entry.found_location);
+    let coords;
+    if (entry.lat != null && entry.lng != null) {
+      coords = { lat: entry.lat, lng: entry.lng };
+      console.log(`[map] using stored coords for entry ${i}: "${entry.found_location}"`);
+    } else {
+      if (nominatimDelay) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
+      if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
+      coords = await geocodeLocation(entry.found_location);
+      nominatimDelay = true;
+    }
+
     if (geocodeSession !== session) return;
     if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
     resolved.push({ entryIndex: i, entry, coords });
@@ -715,7 +724,9 @@ async function submitEntry() {
     if (typeof debugLog === 'function') debugLog('photo: no file selected');
   }
 
-  if (typeof debugLog === 'function') debugLog(`entry insert: photo_url=${photo_url ? 'set' : 'null'}`);
+  // Geocode location at submission time so the map loads instantly on future views
+  const coords = await geocodeLocation(locationPlace);
+  if (typeof debugLog === 'function') debugLog(`entry insert: photo_url=${photo_url ? 'set' : 'null'}, coords=${coords ? `${coords.lat},${coords.lng}` : 'null'}`);
   const { error } = await supabase
     .from('entries')
     .insert({
@@ -724,7 +735,9 @@ async function submitEntry() {
       location_description: locationDesc || null,
       message: message || null,
       photo_url,
-      found_date: foundAt
+      found_date: foundAt,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null
     });
 
   if (error) {

@@ -21,6 +21,8 @@ create table entries (
   message              text,
   photo_url            text,                 -- public URL of uploaded photo in Supabase Storage
   found_date           date,
+  lat                  double precision,     -- geocoded latitude stored at submission time
+  lng                  double precision,     -- geocoded longitude stored at submission time
   created_at           timestamptz not null default now()
 );
 
@@ -28,6 +30,8 @@ create table entries (
 -- alter table entries add column if not exists location_description text;
 -- alter table entries add column if not exists photo_url text;
 -- alter table books   add column if not exists passcode text;
+-- alter table entries add column if not exists lat double precision;
+-- alter table entries add column if not exists lng double precision;
 
 create index entries_isbn_idx on entries(isbn);
 
