@@ -122,7 +122,16 @@ async function renderJourneyMap(entries) {
   console.log(`[map] init session=${session}, entries=${entries.length}`);
 
   try {
-    journeyMap = L.map(mapEl, { scrollWheelZoom: false });
+    journeyMap = L.map(mapEl, {
+      scrollWheelZoom: false,
+      preferCanvas: true,      // single <canvas> for all vectors instead of per-element SVG nodes
+      zoomControl: false,      // display-only map, no zoom UI needed
+      keyboard: false,         // skip keyboard nav setup
+      boxZoom: false,          // skip shift-drag zoom setup
+      doubleClickZoom: false,  // skip double-click zoom setup
+      fadeAnimation: false,    // tiles appear immediately, no fade-in
+      trackResize: false       // modal doesn't resize with the window
+    });
     journeyMap.invalidateSize(); // force re-measure in case container was display:none
     console.log('[map] L.map() ok, size after invalidate:', journeyMap.getSize());
   } catch (err) {
@@ -132,7 +141,9 @@ async function renderJourneyMap(entries) {
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19
+    maxZoom: 19,
+    updateWhenIdle: true,  // only load tiles when panning stops, not continuously
+    keepBuffer: 1          // preload 1 row/col of offscreen tiles instead of default 2
   }).addTo(journeyMap);
 
   Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
