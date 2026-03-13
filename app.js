@@ -443,7 +443,7 @@ function openModal() {
         <div class="entry-content">
           <div class="entry-header">
             <div class="entry-field">
-              <span class="entry-field-label">City</span>
+              <span class="entry-field-label">Location</span>
               <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
             </div>
             <div class="entry-field">
@@ -451,8 +451,8 @@ function openModal() {
               <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
             </div>
           </div>
-          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
-          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
+          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
+          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
           ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(transformImageUrl(entry.photo_url, 800, 75, 400))}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(transformImageUrl(entry.photo_url, 1600, 85))}')" >` : ''}
         </div>
       </div>
@@ -496,14 +496,14 @@ function resetEntryForm() {
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
-      <label class="form-label">A photo (optional)</label>
+      <label class="form-label">A photo <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
       <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
         <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
         <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
-    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Leave Your Mark</button>
+    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Post</button>
   `;
   initLocationAutocomplete();
 
