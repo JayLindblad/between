@@ -383,16 +383,8 @@ document.getElementById('isbnInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') lookupISBN();
 });
 
-// ── Open modal from catalog (ISBN-gated) ──
+// ── Open modal from catalog ──
 async function openBookDirect(bookIsbn) {
-  const entered = prompt("Enter the ISBN from the back of the book to read its journey:");
-  if (!entered) return;
-
-  if (normalizeISBN(entered) !== normalizeISBN(bookIsbn)) {
-    alert("That ISBN doesn't match this book.");
-    return;
-  }
-
   const { data, error } = await supabase
     .from('books')
     .select('*, entries(*)')
@@ -406,7 +398,7 @@ async function openBookDirect(bookIsbn) {
 
   currentBook = data;
   prefetchBookDescription(data);
-  openModal();
+  openPasscodeModal();
 }
 
 // ── Book description ──
