@@ -30,7 +30,7 @@ function formatDate(dateStr) {
 function transformImageUrl(url, width, quality) {
   if (!url) return url;
   const transformed = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-  return `${transformed}?width=${width}&quality=${quality}`;
+  return `${transformed}?width=${width}&quality=${quality}&resize=contain`;
 }
 
 function normalizeISBN(raw) {
