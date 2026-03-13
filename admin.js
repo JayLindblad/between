@@ -520,7 +520,7 @@ async function deleteBook(isbn, title) {
 async function loadEntries() {
   const { data, error } = await db
     .from('entries')
-    .select('id, found_location, location_description, message, found_date, created_at, photo_url, books(title)')
+    .select('id, finder_name, found_location, location_description, message, found_date, created_at, photo_url, books(title)')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -539,6 +539,7 @@ async function loadEntries() {
   const rows = data.map(entry => `
     <tr>
       <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
+      <td class="td-author" data-label="Name">${escapeHtml(entry.finder_name || '—')}</td>
       <td class="td-location" data-label="Found at">
         ${escapeHtml(entry.found_location)}
         ${entry.location_description ? `<div style="font-size:12px; font-style:italic; color:var(--ink-faint); margin-top:2px;">${escapeHtml(entry.location_description)}</div>` : ''}
@@ -559,6 +560,7 @@ async function loadEntries() {
       <thead>
         <tr>
           <th>Book</th>
+          <th>Name</th>
           <th>Found at</th>
           <th>Message</th>
           <th>Date</th>

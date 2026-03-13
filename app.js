@@ -554,6 +554,7 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
+            ${entry.finder_name ? `<div class="entry-field"><span class="entry-field-label">Found by</span><span class="entry-finder-name">${escapeHtml(entry.finder_name)}</span></div>` : ''}
             <div class="entry-field">
               <span class="entry-field-label">City</span>
               <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
@@ -589,6 +590,10 @@ function resetEntryForm() {
   const section = document.querySelector('.add-entry-section');
   section.innerHTML = `
     <p class="add-entry-title">Add your chapter</p>
+    <div class="form-field">
+      <label class="form-label">Your name <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional — first name only)</span></label>
+      <input class="form-input" id="entryFinderName" type="text" placeholder="e.g. Maya" autocomplete="given-name" maxlength="60" />
+    </div>
     <div class="form-field">
       <label class="form-label">City</label>
       <div class="location-autocomplete-wrapper">
@@ -821,6 +826,7 @@ function closePhotoModal() {
 async function submitEntry() {
   if (!currentBook) return;
 
+  const finderName = document.getElementById('entryFinderName').value.trim();
   const locationPlace = document.getElementById('entryLocationPlace').value.trim();
   const locationDesc = document.getElementById('entryLocationDesc').value.trim();
   const message = document.getElementById('entryMessage').value.trim();
@@ -867,6 +873,7 @@ async function submitEntry() {
     .from('entries')
     .insert({
       isbn: currentBook.isbn,
+      finder_name: finderName || null,
       found_location: locationPlace,
       location_description: locationDesc || null,
       message: message || null,
