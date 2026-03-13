@@ -55,6 +55,46 @@ function bookCoverUrl(isbn, storedUrl) {
   return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
 }
 
+const coverCache = {}; // isbn → Promise<string|null>
+
+async function fetchAndCacheCover(book) {
+  if (book.cover_url) return book.cover_url;
+
+  try {
+    const olUrl = `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`;
+    debugLog(`cover: fetching from open library for isbn=${book.isbn}`);
+    const res = await fetch(olUrl);
+    // Open Library returns a 1×1 gif for missing covers
+    if (!res.ok || res.headers.get('content-type')?.startsWith('image/gif')) {
+      debugLog('cover: not found on open library', 'warn');
+      return null;
+    }
+    const blob = await res.blob();
+    if (blob.size < 1000) { debugLog('cover: image too small, likely placeholder', 'warn'); return null; }
+
+    const path = `covers/${book.isbn}.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from('entry-photos')
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (uploadError && uploadError.message !== 'The resource already exists') {
+      debugLog(`cover: upload failed — ${uploadError.message}`, 'warn');
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
+    debugLog(`cover: uploaded, caching url to db`);
+    book.cover_url = publicUrl;
+    supabase.rpc('cache_book_cover', { book_isbn: book.isbn, book_cover_url: publicUrl }).then(({ error }) => {
+      if (error) debugLog(`cover: db write failed — ${error.message}`, 'warn');
+      else debugLog('cover: cached to db');
+    });
+    return publicUrl;
+  } catch (err) {
+    debugLog(`cover: fetch failed — ${err.message}`, 'error');
+    return null;
+  }
+}
+
 // ── Geocoding ──
 async function geocodeLocation(loc) {
   if (geocodeCache[loc] !== undefined) {
@@ -351,7 +391,7 @@ async function lookupISBN(isbnDirect) {
 
   if (data) {
     currentBook = data;
-    prefetchBookDescription(data);
+    prefetchBook(data);
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
     const coverImg = document.getElementById('resultCover');
@@ -397,7 +437,7 @@ async function openBookDirect(bookIsbn) {
   }
 
   currentBook = data;
-  prefetchBookDescription(data);
+  prefetchBook(data);
   openPasscodeModal();
 }
 
@@ -450,9 +490,12 @@ async function fetchAndCacheDescription(book) {
   }
 }
 
-function prefetchBookDescription(book) {
+function prefetchBook(book) {
   if (!descriptionCache[book.isbn]) {
     descriptionCache[book.isbn] = fetchAndCacheDescription(book);
+  }
+  if (!coverCache[book.isbn]) {
+    coverCache[book.isbn] = fetchAndCacheCover(book);
   }
 }
 

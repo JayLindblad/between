@@ -34,6 +34,7 @@ create table entries (
 -- alter table entries add column if not exists lat double precision;
 -- alter table entries add column if not exists lng double precision;
 -- alter table books   add column if not exists description text;
+-- note: cover_url already exists; cache_book_cover rpc writes back fetched covers
 
 create index entries_isbn_idx on entries(isbn);
 
@@ -92,6 +93,17 @@ as $$
   set description = book_description
   where isbn = book_isbn
     and description is null;
+$$;
+
+create or replace function cache_book_cover(book_isbn text, book_cover_url text)
+returns void
+language sql
+security definer
+as $$
+  update books
+  set cover_url = book_cover_url
+  where isbn = book_isbn
+    and cover_url is null;
 $$;
 
 -- ── Storage ───────────────────────────────────────────────────────────────────
