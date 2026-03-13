@@ -443,9 +443,10 @@ async function fetchAndCacheDescription(book) {
     const clean = sanitizeDescription(text);
     debugLog(`description: ${clean ? 'fetched (' + clean.length + ' chars), writing to db' : 'not found'}`);
     if (clean) {
-      // Write back to DB so future loads skip the API call
+      // Write back to DB via RPC so future loads skip the API call.
+      // Uses a security definer function because the anon key can't UPDATE books directly.
       book.description = clean;
-      supabase.from('books').update({ description: clean }).eq('isbn', book.isbn).then(({ error }) => {
+      supabase.rpc('cache_book_description', { book_isbn: book.isbn, book_description: clean }).then(({ error }) => {
         if (error) debugLog(`description: db write failed — ${error.message}`, 'warn');
         else debugLog('description: cached to db');
       });

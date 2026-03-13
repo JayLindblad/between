@@ -78,6 +78,22 @@ create policy "authenticated can delete entries"
   to authenticated
   using (true);
 
+-- ── Functions ────────────────────────────────────────────────────────────────
+-- Allows the anon key to cache a description on a book row without needing
+-- a broad UPDATE policy. security definer runs as the table owner, bypassing
+-- RLS. Only writes when description is currently null (won't overwrite admin edits).
+
+create or replace function cache_book_description(book_isbn text, book_description text)
+returns void
+language sql
+security definer
+as $$
+  update books
+  set description = book_description
+  where isbn = book_isbn
+    and description is null;
+$$;
+
 -- ── Storage ───────────────────────────────────────────────────────────────────
 -- Public bucket for entry photos (visitors upload; anyone can view)
 
