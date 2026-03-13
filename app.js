@@ -409,10 +409,13 @@ async function openBookDirect(bookIsbn) {
 // ── Book description (Google Books API) ──
 async function fetchBookDescription(isbn) {
   try {
+    debugLog(`description: fetching for isbn=${isbn}`);
     const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`);
     const data = await res.json();
+    debugLog(`description: totalItems=${data.totalItems}, hasDescription=${!!data.items?.[0]?.volumeInfo?.description}`);
     return data.items?.[0]?.volumeInfo?.description || null;
-  } catch {
+  } catch (err) {
+    debugLog(`description: fetch failed — ${err.message}`, 'error');
     return null;
   }
 }
