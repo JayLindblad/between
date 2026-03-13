@@ -10,7 +10,8 @@ create table books (
   cover_url      text,
   release_note   text,
   released_by    text,
-  passcode       text   -- 6-digit code written in pen inside the book; required to view journey
+  passcode       text,  -- 6-digit code written in pen inside the book; required to view journey
+  description    text   -- cached from Open Library; populated on first view
 );
 
 create table entries (
@@ -32,6 +33,7 @@ create table entries (
 -- alter table books   add column if not exists passcode text;
 -- alter table entries add column if not exists lat double precision;
 -- alter table entries add column if not exists lng double precision;
+-- alter table books   add column if not exists description text;
 
 create index entries_isbn_idx on entries(isbn);
 

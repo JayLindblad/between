@@ -351,7 +351,7 @@ async function lookupISBN(isbnDirect) {
 
   if (data) {
     currentBook = data;
-    prefetchBookDescription(data.isbn);
+    prefetchBookDescription(data);
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
     const coverImg = document.getElementById('resultCover');
@@ -405,11 +405,11 @@ async function openBookDirect(bookIsbn) {
   }
 
   currentBook = data;
-  prefetchBookDescription(data.isbn);
+  prefetchBookDescription(data);
   openModal();
 }
 
-// ── Book description (Google Books API) ──
+// ── Book description ──
 function sanitizeDescription(text) {
   if (!text) return null;
   return text
@@ -423,10 +423,17 @@ function sanitizeDescription(text) {
     .trim();
 }
 
-async function fetchBookDescription(isbn) {
+async function fetchAndCacheDescription(book) {
+  // If already stored in DB, return immediately
+  if (book.description) {
+    debugLog(`description: loaded from db (${book.description.length} chars)`);
+    return book.description;
+  }
+
+  // Otherwise fetch from Open Library and write back to DB
   try {
-    debugLog(`description: fetching for isbn=${isbn}`);
-    const res = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
+    debugLog(`description: fetching from open library for isbn=${book.isbn}`);
+    const res = await fetch(`https://openlibrary.org/search.json?isbn=${book.isbn}&fields=description&limit=1`);
     if (!res.ok) { debugLog(`description: search failed (${res.status})`, 'warn'); return null; }
     const data = await res.json();
     const doc = data.docs?.[0];
@@ -434,7 +441,15 @@ async function fetchBookDescription(isbn) {
     const raw = doc.description;
     const text = typeof raw === 'string' ? raw : (raw?.value || null);
     const clean = sanitizeDescription(text);
-    debugLog(`description: ${clean ? 'found (' + clean.length + ' chars)' : 'not found'}`);
+    debugLog(`description: ${clean ? 'fetched (' + clean.length + ' chars), writing to db' : 'not found'}`);
+    if (clean) {
+      // Write back to DB so future loads skip the API call
+      book.description = clean;
+      supabase.from('books').update({ description: clean }).eq('isbn', book.isbn).then(({ error }) => {
+        if (error) debugLog(`description: db write failed — ${error.message}`, 'warn');
+        else debugLog('description: cached to db');
+      });
+    }
     return clean;
   } catch (err) {
     debugLog(`description: fetch failed — ${err.message}`, 'error');
@@ -442,9 +457,9 @@ async function fetchBookDescription(isbn) {
   }
 }
 
-function prefetchBookDescription(isbn) {
-  if (!descriptionCache[isbn]) {
-    descriptionCache[isbn] = fetchBookDescription(isbn);
+function prefetchBookDescription(book) {
+  if (!descriptionCache[book.isbn]) {
+    descriptionCache[book.isbn] = fetchAndCacheDescription(book);
   }
 }
 
@@ -465,7 +480,7 @@ function openModal() {
   descToggle.textContent = 'Read more';
   descToggle.style.display = 'none';
   descBlock.style.display = 'none';
-  (descriptionCache[b.isbn] || fetchBookDescription(b.isbn)).then(desc => {
+  (descriptionCache[b.isbn] || fetchAndCacheDescription(b)).then(desc => {
     if (!desc) return;
     descEl.textContent = desc;
     descBlock.style.display = '';
