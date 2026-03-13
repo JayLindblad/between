@@ -341,7 +341,7 @@ async function loadAndRenderCatalog() {
       </div>
       <div class="locked-notice">
         <span class="lock-icon">🔖</span>
-        <span>ISBN required to read</span>
+        <span>Passcode required to read</span>
       </div>
     </div>
   `).join('');
@@ -556,7 +556,7 @@ function openModal() {
           <div class="entry-header">
             ${entry.finder_name ? `<div class="entry-field"><span class="entry-field-label">Found by</span><span class="entry-finder-name">${escapeHtml(entry.finder_name)}</span></div>` : ''}
             <div class="entry-field">
-              <span class="entry-field-label">City</span>
+              <span class="entry-field-label">Location</span>
               <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
             </div>
             <div class="entry-field">
@@ -564,8 +564,8 @@ function openModal() {
               <span class="entry-date">${formatDate(entry.found_date || entry.created_at)}</span>
             </div>
           </div>
-          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
-          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
+          ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
+          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Message</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
           ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(transformImageUrl(entry.photo_url, 800, 75, 400))}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(transformImageUrl(entry.photo_url, 1600, 85))}')" >` : ''}
         </div>
       </div>
@@ -595,7 +595,7 @@ function resetEntryForm() {
       <input class="form-input" id="entryFinderName" type="text" placeholder="e.g. Maya" autocomplete="given-name" maxlength="60" />
     </div>
     <div class="form-field">
-      <label class="form-label">City</label>
+      <label class="form-label">Location</label>
       <div class="location-autocomplete-wrapper">
         <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY" autocomplete="off" />
       </div>
@@ -609,7 +609,7 @@ function resetEntryForm() {
       <input class="form-input" id="entryDate" type="date" />
     </div>
     <div class="form-field">
-      <label class="form-label">Something to say</label>
+      <label class="form-label">Message</label>
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
