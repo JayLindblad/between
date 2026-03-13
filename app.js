@@ -208,7 +208,8 @@ async function renderJourneyMap(entries) {
       weight: 2,
       opacity: 0.75,
       dashArray: '5 9',
-      className: 'journey-path'
+      className: 'journey-path',
+      renderer: L.svg()  // SVG renderer so CSS stroke-dashoffset animation works
     }).addTo(journeyMap);
     console.log(`[map] path drawn with ${allPoints.length} points`);
   }
