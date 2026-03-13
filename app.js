@@ -406,6 +406,17 @@ async function openBookDirect(bookIsbn) {
   openModal();
 }
 
+// ── Book description (Google Books API) ──
+async function fetchBookDescription(isbn) {
+  try {
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&fields=items(volumeInfo/description)&maxResults=1`);
+    const data = await res.json();
+    return data.items?.[0]?.volumeInfo?.description || null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Modal ──
 function openModal() {
   if (!currentBook) return;
@@ -414,6 +425,11 @@ function openModal() {
 
   document.getElementById('modalTitle').textContent = b.title;
   document.getElementById('modalAuthor').textContent = b.author;
+  const descEl = document.getElementById('modalDescription');
+  descEl.textContent = '';
+  fetchBookDescription(b.isbn).then(desc => {
+    if (desc) descEl.textContent = desc;
+  });
   const modalCover = document.getElementById('modalCover');
   modalCover.src = bookCoverUrl(b.isbn, b.cover_url);
   modalCover.style.display = 'block';
