@@ -87,22 +87,21 @@ function buildArcPath(latlng1, latlng2, segIndex) {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist < 0.0001) return [p1, p2];
 
-  // Arc control point — alternates sides each segment for visual variety
+  // Quadratic bezier arc — alternates sides each segment
   const side = segIndex % 2 === 0 ? 1 : -1;
   const arc = dist * 0.18 * side;
   const cx = (p1[0] + p2[0]) / 2 - (dy / dist) * arc;
   const cy = (p1[1] + p2[1]) / 2 + (dx / dist) * arc;
 
-  const steps = 28;
-  const wobble = dist * 0.012;
+  const steps = 20;
   const pts = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const mt = 1 - t;
-    const lat = mt * mt * p1[0] + 2 * mt * t * cx + t * t * p2[0];
-    const lng = mt * mt * p1[1] + 2 * mt * t * cy + t * t * p2[1];
-    const w = Math.sin(t * 13.1 + segIndex * 7.3) * wobble;
-    pts.push([lat + w * (-dy / dist), lng + w * (dx / dist)]);
+    pts.push([
+      mt * mt * p1[0] + 2 * mt * t * cx + t * t * p2[0],
+      mt * mt * p1[1] + 2 * mt * t * cy + t * t * p2[1]
+    ]);
   }
   return pts;
 }
@@ -189,13 +188,6 @@ async function renderJourneyMap(entries) {
 
   // Phase 2: draw path first (so it's behind markers in SVG z-order — no bringToBack needed)
   if (resolved.length > 1) {
-    if (!document.getElementById('journey-svg-defs')) {
-      const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svgDefs.id = 'journey-svg-defs';
-      svgDefs.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
-      svgDefs.innerHTML = `<defs><filter id="journey-roughen" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>`;
-      document.body.appendChild(svgDefs);
-    }
     const latlngs = resolved.map(r => [r.coords.lat, r.coords.lng]);
     const allPoints = [];
     for (let i = 0; i < latlngs.length - 1; i++) {
