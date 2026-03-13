@@ -784,6 +784,42 @@ h1 em {
   object-fit: cover;
   border: 1px solid var(--border);
   display: block;
+  cursor: zoom-in;
+}
+
+/* Photo lightbox */
+.photo-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(10, 8, 6, 0.93);
+  align-items: center;
+  justify-content: center;
+}
+.photo-lightbox.open {
+  display: flex;
+}
+.photo-lightbox-img {
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  display: block;
+}
+.photo-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: none;
+  border: none;
+  color: var(--color-cream);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.8;
+}
+.photo-lightbox-close:hover {
+  opacity: 1;
 }
 
 /* Add entry form */

@@ -421,7 +421,7 @@ function openModal() {
           </div>
           ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Spot / Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
           ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment / Story</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
-          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(entry.photo_url)}" alt="" loading="lazy">` : ''}
+          ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(entry.photo_url)}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(entry.photo_url)}')">` : ''}
         </div>
       </div>
     `).join('');
@@ -652,6 +652,18 @@ function closeModal() {
 
 function handleOverlayClick(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function openPhotoModal(url) {
+  const lightbox = document.getElementById('photoLightbox');
+  document.getElementById('photoLightboxImg').src = url;
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePhotoModal() {
+  document.getElementById('photoLightbox').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── Submit entry ──
