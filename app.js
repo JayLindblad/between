@@ -87,9 +87,7 @@ function buildArcPath(latlng1, latlng2, segIndex) {
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist < 0.0001) return [p1, p2];
 
-  // Quadratic bezier arc — alternates sides each segment
-  const side = segIndex % 2 === 0 ? 1 : -1;
-  const arc = dist * 0.18 * side;
+  const arc = dist * 0.18;
   const cx = (p1[0] + p2[0]) / 2 - (dy / dist) * arc;
   const cy = (p1[1] + p2[1]) / 2 + (dx / dist) * arc;
 
