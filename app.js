@@ -149,29 +149,39 @@ async function renderJourneyMap(entries) {
   Object.keys(entryMarkers).forEach(k => delete entryMarkers[k]);
   const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  // Phase 1: resolve coords — use stored lat/lng where available, geocode the rest
-  const resolved = []; // { entryIndex, entry, coords }
-  let nominatimDelay = false;
+  // Phase 1a: synchronously collect entries with stored coords
+  const resolved = [];
+  const toGeocode = [];
   for (let i = 0; i < sorted.length; i++) {
-    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
     const entry = sorted[i];
-    if (!entry.found_location) { console.log(`[map] entry ${i} has no location, skipping`); continue; }
-
-    let coords;
+    if (!entry.found_location) continue;
     if (entry.lat != null && entry.lng != null) {
-      coords = { lat: entry.lat, lng: entry.lng };
-      console.log(`[map] using stored coords for entry ${i}: "${entry.found_location}"`);
+      resolved.push({ entryIndex: i, entry, coords: { lat: entry.lat, lng: entry.lng } });
     } else {
-      if (nominatimDelay) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
-      if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
-      coords = await geocodeLocation(entry.found_location);
-      nominatimDelay = true;
+      toGeocode.push({ entryIndex: i, entry });
     }
-
-    if (geocodeSession !== session) return;
-    if (!coords) { console.warn(`[map] no coords for entry ${i}: "${entry.found_location}"`); continue; }
-    resolved.push({ entryIndex: i, entry, coords });
   }
+
+  // Set initial map view immediately from stored coords so tiles start loading now
+  if (resolved.length > 0) {
+    const bounds = L.latLngBounds(resolved.map(r => [r.coords.lat, r.coords.lng]));
+    journeyMap.fitBounds(bounds.pad(0.3), { animate: false });
+    console.log(`[map] initial fitBounds from ${resolved.length} stored coord(s)`);
+  }
+
+  // Phase 1b: geocode remaining entries (old entries missing lat/lng) in parallel with tile loading
+  let nominatimDelay = false;
+  for (const { entryIndex, entry } of toGeocode) {
+    if (geocodeSession !== session) { console.log('[map] session cancelled, aborting'); return; }
+    if (nominatimDelay) await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
+    if (geocodeSession !== session) { console.log('[map] session cancelled after delay, aborting'); return; }
+    const coords = await geocodeLocation(entry.found_location);
+    nominatimDelay = true;
+    if (geocodeSession !== session) return;
+    if (!coords) { console.warn(`[map] no coords for "${entry.found_location}"`); continue; }
+    resolved.push({ entryIndex, entry, coords });
+  }
+  resolved.sort((a, b) => a.entryIndex - b.entryIndex);
 
   // Phase 2: draw path first (so it's behind markers in SVG z-order — no bringToBack needed)
   if (resolved.length > 1) {
@@ -222,7 +232,7 @@ async function renderJourneyMap(entries) {
   console.log(`[map] placed ${markers.length} marker(s)`);
   if (markers.length > 0) {
     try {
-      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3));
+      journeyMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.3), { animate: false });
       console.log('[map] fitBounds ok');
     } catch (err) {
       console.error('[map] fitBounds threw:', err);
