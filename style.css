@@ -460,14 +460,24 @@ h1 em {
   position: fixed;
   inset: 0;
   min-height: 100dvh;
-  background: rgba(26, 22, 18, 0.7);
   z-index: 500;
   display: none;
   align-items: flex-start;
   justify-content: center;
   padding: 40px 16px;
   overflow-y: auto;
+}
+
+.modal-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transform: translateZ(0);
+  z-index: -1;
 }
 
 .modal-overlay.open { display: flex; }
@@ -477,6 +487,7 @@ h1 em {
   max-width: 680px;
   width: 100%;
   position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   box-shadow: 0 24px 80px rgba(26,22,18,0.3);
   animation: fadeUp 0.4s ease forwards;
@@ -615,13 +626,24 @@ h1 em {
 .passcode-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  min-height: 100dvh;
   z-index: 500;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+.passcode-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transform: translateZ(0);
+  z-index: -1;
 }
 
 .passcode-overlay.open { display: flex; }
@@ -632,6 +654,7 @@ h1 em {
   width: 100%;
   padding: 48px 40px 40px;
   position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   box-shadow: 0 24px 80px rgba(26,22,18,0.3);
   animation: fadeUp 0.35s ease forwards;
