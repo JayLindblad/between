@@ -771,14 +771,14 @@ function resetEntryForm() {
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
-      <label class="form-label">A photo (optional)</label>
+      <label class="form-label">A photo <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
       <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
         <p class="photo-upload-text" id="photoUploadText">Tap to add a photo</p>
         <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
     <p id="entryError" style="color:var(--rust); font-style:italic; font-size:14px; min-height:20px; margin-top:4px;"></p>
-    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Submit</button>
+    <button class="submit-entry-btn" id="submitEntryBtn" onclick="submitEntry()">Post</button>
   `;
   initLocationAutocomplete();
 
