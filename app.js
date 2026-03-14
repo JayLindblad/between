@@ -1008,25 +1008,25 @@ async function submitEntry() {
   const btn = document.getElementById('submitEntryBtn');
 
   if (!locationPlace && !message) {
-    errorEl.textContent = 'Please fill in both Location and Message.';
+    errorEl.textContent = 'Please enter a location and message.';
     document.getElementById('entryLocationPlace').focus();
     return;
   }
 
   if (!locationPlace) {
-    errorEl.textContent = 'Please enter a city or place name for the map.';
+    errorEl.textContent = 'Please enter a city or place name.';
     document.getElementById('entryLocationPlace').focus();
     return;
   }
 
   if (!message) {
-    errorEl.textContent = 'Please share a message about the book or your moment.';
+    errorEl.textContent = 'Please enter a message.';
     document.getElementById('entryMessage').focus();
     return;
   }
 
   errorEl.textContent = '';
-  btn.textContent = 'Leaving your mark…';
+  btn.textContent = 'Submitting...';
   btn.disabled = true;
 
   // Upload photo if one was selected
