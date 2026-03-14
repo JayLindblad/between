@@ -482,7 +482,7 @@ async function lookupISBN() {
           const path = `covers/${isbn}.jpg`;
           const { error: uploadError } = await supabase.storage
             .from('entry-photos')
-            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+            .upload(path, blob, { contentType: blob.type || 'image/jpeg' });
           if (!uploadError || uploadError.message === 'The resource already exists') {
             const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
             supabase.rpc('cache_isbn_metadata', {
