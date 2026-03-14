@@ -485,13 +485,16 @@ async function lookupISBN() {
             .upload(path, blob, { contentType: blob.type || 'image/jpeg' });
           if (!uploadError || uploadError.message === 'The resource already exists') {
             const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
-            supabase.rpc('cache_isbn_metadata', {
+            const { error: coverCacheError } = await supabase.rpc('cache_isbn_metadata', {
               p_isbn: isbn, p_title: null, p_author: null,
               p_cover_url: publicUrl, p_description: null
             });
-            if (typeof debugLog === 'function') debugLog(`isbn_metadata: cover cached to storage for ${isbn}`);
+            if (coverCacheError) console.error('isbn_metadata cover update error:', coverCacheError);
+            else if (typeof debugLog === 'function') debugLog(`isbn_metadata: cover cached to storage for ${isbn}`);
+          } else {
+            console.error('cover upload error:', uploadError);
           }
-        } catch (_) { /* best effort */ }
+        } catch (e) { console.error('cover upload exception:', e); }
       })();
     }
 
