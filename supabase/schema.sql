@@ -38,12 +38,30 @@ create table entries (
 
 create index entries_isbn_idx on entries(isbn);
 
+-- ── ISBN Metadata Cache ───────────────────────────────────────────────────────
+-- Persistent cache for any ISBN ever looked up, regardless of whether it has
+-- been approved into books. This means external APIs are called only once per
+-- ISBN, ever. Covers are uploaded to Supabase Storage and the URL written back
+-- here so future lookups always read from the DB.
+
+create table isbn_metadata (
+  isbn        text primary key,
+  title       text,
+  author      text,
+  cover_url   text,   -- starts as external URL; updated to storage URL after background upload
+  description text,   -- fetched from Open Library; updated in the background after initial lookup
+  fetched_at  timestamptz not null default now()
+);
+
+-- Migration: create table isbn_metadata (...) — new table, run the full create above.
+
 -- ── Row Level Security ───────────────────────────────────────────────────────
 -- The anon key is public (used in the browser). Authenticated users (admins)
 -- get full write access. Visitors can read everything and add entries only.
 
-alter table books   enable row level security;
-alter table entries enable row level security;
+alter table books          enable row level security;
+alter table entries        enable row level security;
+alter table isbn_metadata  enable row level security;
 
 -- Books: public read; authenticated (admin) full write
 create policy "public can read books"
@@ -79,6 +97,11 @@ create policy "authenticated can delete entries"
   to authenticated
   using (true);
 
+-- isbn_metadata: public read; all writes go through security definer RPCs
+create policy "public can read isbn metadata"
+  on isbn_metadata for select
+  using (true);
+
 -- ── Functions ────────────────────────────────────────────────────────────────
 -- Allows the anon key to cache a description on a book row without needing
 -- a broad UPDATE policy. security definer runs as the table owner, bypassing
@@ -106,17 +129,41 @@ as $$
     and cover_url is null;
 $$;
 
+-- Upserts a row into isbn_metadata. COALESCE logic means:
+--   - first call sets all fields
+--   - later calls only fill in NULL fields (e.g. description arrives after cover)
+--   - a non-null value is never overwritten by a null (so background tasks are safe)
+-- Exception: cover_url is always updated if the incoming value is non-null, so that
+-- the background storage-upload task can upgrade an external URL to a stable storage URL.
+create or replace function cache_isbn_metadata(
+  p_isbn        text,
+  p_title       text,
+  p_author      text,
+  p_cover_url   text,
+  p_description text
+)
+returns void
+language sql
+security definer
+as $$
+  insert into isbn_metadata (isbn, title, author, cover_url, description)
+  values (p_isbn, p_title, p_author, p_cover_url, p_description)
+  on conflict (isbn) do update set
+    title       = coalesce(excluded.title,       isbn_metadata.title),
+    author      = coalesce(excluded.author,      isbn_metadata.author),
+    cover_url   = coalesce(excluded.cover_url,   isbn_metadata.cover_url),
+    description = coalesce(excluded.description, isbn_metadata.description);
+$$;
+
 -- ── Book Submissions ─────────────────────────────────────────────────────────
 -- Visitors submit books they want to release into the wild.
 -- Admin reviews and approves (which inserts into books) or declines.
+-- Metadata (title/author/cover/description) lives in isbn_metadata, not here —
+-- admins read it via a join when approving.
 
 create table book_submissions (
   id           uuid primary key default gen_random_uuid(),
   isbn         text not null,
-  title        text,
-  author       text,
-  cover_url    text,   -- cached to Supabase Storage (entry-photos/covers/<isbn>.jpg) at submission time
-  description  text,   -- fetched from Open Library at submission time
   passcode     text not null,
   release_note text,
   released_by  text,
@@ -134,10 +181,20 @@ create policy "authenticated can manage submissions"
   to authenticated
   using (true);
 
--- Migration: alter table book_submissions add column if not exists description text;
+-- Migration for existing deployments (run in order):
+-- Step 1 — copy existing submission metadata into isbn_metadata before dropping columns:
+--   insert into isbn_metadata (isbn, title, author, cover_url, description)
+--   select isbn, title, author, cover_url, description
+--   from book_submissions where title is not null
+--   on conflict (isbn) do nothing;
+-- Step 2 — drop now-redundant columns:
+--   alter table book_submissions drop column if exists title;
+--   alter table book_submissions drop column if exists author;
+--   alter table book_submissions drop column if exists cover_url;
+--   alter table book_submissions drop column if exists description;
 
 -- ── Storage ───────────────────────────────────────────────────────────────────
--- Public bucket for entry photos (visitors upload; anyone can view)
+-- Public bucket for entry photos and cached book covers (visitors upload; anyone can view)
 
 insert into storage.buckets (id, name, public)
 values ('entry-photos', 'entry-photos', true)

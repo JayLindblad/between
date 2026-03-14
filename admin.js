@@ -607,23 +607,34 @@ async function loadSubmissions() {
     return;
   }
 
+  // Fetch metadata for all submission ISBNs from the cache table
+  const isbns = [...new Set(data.map(s => s.isbn))];
+  let metaMap = {};
+  if (isbns.length) {
+    const { data: metaData } = await db.from('isbn_metadata').select('isbn, title, author').in('isbn', isbns);
+    metaMap = Object.fromEntries((metaData || []).map(m => [m.isbn, m]));
+  }
+
   countEl.textContent = `(${data.length})`;
 
-  const rows = data.map(sub => `
-    <tr>
-      <td class="td-title" data-label="Title">${escapeHtml(sub.title || '—')}</td>
-      <td class="td-author" data-label="Author">${escapeHtml(sub.author || '—')}</td>
-      <td class="td-isbn" data-label="ISBN">${escapeHtml(sub.isbn)}</td>
-      <td class="td-isbn" data-label="Passcode" style="text-align:center; letter-spacing:0.15em;">${escapeHtml(sub.passcode)}</td>
-      <td class="td-author" data-label="Released by">${escapeHtml(sub.released_by || '—')}</td>
-      <td class="td-message" data-label="Note">${escapeHtml(sub.release_note || '—')}</td>
-      <td class="td-date" data-label="Submitted">${formatDate(sub.created_at)}</td>
-      <td class="td-actions">
-        <button class="btn-action btn-edit" onclick="approveSubmission('${sub.id}')">Approve</button>
-        <button class="btn-action btn-delete" onclick="declineSubmission('${sub.id}')">Decline</button>
-      </td>
-    </tr>
-  `).join('');
+  const rows = data.map(sub => {
+    const meta = metaMap[sub.isbn] || {};
+    return `
+      <tr>
+        <td class="td-title" data-label="Title">${escapeHtml(meta.title || '—')}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(meta.author || '—')}</td>
+        <td class="td-isbn" data-label="ISBN">${escapeHtml(sub.isbn)}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center; letter-spacing:0.15em;">${escapeHtml(sub.passcode)}</td>
+        <td class="td-author" data-label="Released by">${escapeHtml(sub.released_by || '—')}</td>
+        <td class="td-message" data-label="Note">${escapeHtml(sub.release_note || '—')}</td>
+        <td class="td-date" data-label="Submitted">${formatDate(sub.created_at)}</td>
+        <td class="td-actions">
+          <button class="btn-action btn-edit" onclick="approveSubmission('${sub.id}')">Approve</button>
+          <button class="btn-action btn-delete" onclick="declineSubmission('${sub.id}')">Decline</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   container.innerHTML = `
     <table class="data-table">
@@ -656,11 +667,19 @@ async function approveSubmission(id) {
     return;
   }
 
+  // Read cached metadata — always populated at lookup time
+  const { data: meta } = await db
+    .from('isbn_metadata')
+    .select('title, author, cover_url, description')
+    .eq('isbn', sub.isbn)
+    .maybeSingle();
+
   const { error } = await db.from('books').insert({
     isbn: sub.isbn,
-    title: sub.title || 'Unknown Title',
-    author: sub.author || 'Unknown Author',
-    cover_url: sub.cover_url || null,
+    title: meta?.title || 'Unknown Title',
+    author: meta?.author || 'Unknown Author',
+    cover_url: meta?.cover_url || null,
+    description: meta?.description || null,
     passcode: sub.passcode,
     release_note: sub.release_note || null,
     released_by: sub.released_by || null

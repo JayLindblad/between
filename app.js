@@ -41,7 +41,6 @@ function normalizeISBN(raw) {
 // ── State ──
 let books = [];
 let currentBook = null;
-let pendingBookData = null; // metadata for a scanned/looked-up book not yet in the DB
 const descriptionCache = {}; // isbn → Promise<string|null>
 let journeyMap = null;
 let geocodeSession = 0;
@@ -361,16 +360,16 @@ async function lookupISBN() {
   btn.disabled = true;
   resultEl.classList.remove('visible');
 
-  const { data, error } = await supabase
-    .from('books')
-    .select('*, entries(*)')
-    .eq('isbn', isbn)
-    .maybeSingle();
+  // Query the catalog and the metadata cache in parallel
+  const [booksResult, metaResult] = await Promise.all([
+    supabase.from('books').select('*, entries(*)').eq('isbn', isbn).maybeSingle(),
+    supabase.from('isbn_metadata').select('*').eq('isbn', isbn).maybeSingle()
+  ]);
 
   btn.textContent = 'Find It';
   btn.disabled = false;
 
-  if (error) {
+  if (booksResult.error) {
     document.getElementById('resultTitle').textContent = "Something went wrong";
     document.getElementById('resultAuthor').textContent = "Please try again";
     document.getElementById('resultStops').textContent = "";
@@ -380,17 +379,16 @@ async function lookupISBN() {
     return;
   }
 
-  if (data) {
-    // Book is in the library — show journey button
-    pendingBookData = null;
-    currentBook = data;
-    prefetchBook(data);
-    document.getElementById('resultTitle').textContent = data.title;
-    document.getElementById('resultAuthor').textContent = data.author;
-    coverImg.src = bookCoverUrl(data.isbn, data.cover_url);
+  if (booksResult.data) {
+    // ── Branch 1: book is in the library ──
+    currentBook = booksResult.data;
+    prefetchBook(booksResult.data);
+    document.getElementById('resultTitle').textContent = booksResult.data.title;
+    document.getElementById('resultAuthor').textContent = booksResult.data.author;
+    coverImg.src = bookCoverUrl(booksResult.data.isbn, booksResult.data.cover_url);
     coverImg.style.display = 'block';
     coverPlaceholder.style.display = 'none';
-    const count = data.entries.length;
+    const count = booksResult.data.entries.length;
     document.getElementById('resultStops').textContent =
       count === 0
         ? "No entries yet — you're the first"
@@ -398,8 +396,28 @@ async function lookupISBN() {
     document.getElementById('viewJourneyBtn').style.display = 'block';
     document.getElementById('setItFreeBtn').style.display = 'none';
     resultEl.classList.add('visible');
+
+  } else if (metaResult.data) {
+    // ── Branch 2: metadata cached from a previous lookup — no external API needed ──
+    currentBook = null;
+    const meta = metaResult.data;
+    document.getElementById('resultTitle').textContent = meta.title || 'Unknown Book';
+    document.getElementById('resultAuthor').textContent = meta.author || isbn;
+    document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
+    if (meta.cover_url) {
+      coverImg.src = meta.cover_url;
+      coverImg.style.display = 'block';
+      coverPlaceholder.style.display = 'none';
+    } else {
+      coverImg.style.display = 'none';
+      coverPlaceholder.style.display = 'flex';
+    }
+    document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('setItFreeBtn').style.display = 'block';
+    resultEl.classList.add('visible');
+
   } else {
-    // Book not in library — look up externally so they can add it
+    // ── Branch 3: first time this ISBN has been seen — fetch externally and cache ──
     currentBook = null;
     let externalTitle = null, externalAuthor = null, externalCover = null;
 
@@ -410,7 +428,7 @@ async function lookupISBN() {
       if (book) {
         externalTitle = book.title || null;
         externalAuthor = book.authors?.map(a => a.name).join(', ') || null;
-        externalCover = book.cover?.medium || book.cover?.small || null;
+        externalCover = book.cover?.large || book.cover?.medium || book.cover?.small || null;
       }
     } catch (_) { /* fall through */ }
 
@@ -427,26 +445,16 @@ async function lookupISBN() {
       } catch (_) { /* fall through */ }
     }
 
-    // Store all fetched metadata so submitBookRelease can use it reliably
-    pendingBookData = { isbn, title: externalTitle, author: externalAuthor, cover_url: externalCover, description: null };
+    // Write initial metadata to the cache immediately (external cover URL for now)
+    supabase.rpc('cache_isbn_metadata', {
+      p_isbn: isbn,
+      p_title: externalTitle,
+      p_author: externalAuthor,
+      p_cover_url: externalCover,
+      p_description: null
+    });
 
-    // Fetch description in the background — will be ready by the time the user submits
-    if (externalTitle) {
-      (async () => {
-        try {
-          const dRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
-          if (dRes.ok) {
-            const dData = await dRes.json();
-            const doc = dData.docs?.[0];
-            const raw = doc?.description;
-            const text = typeof raw === 'string' ? raw : (raw?.value || null);
-            const desc = sanitizeDescription(text);
-            if (pendingBookData?.isbn === isbn) pendingBookData.description = desc;
-          }
-        } catch (_) { /* best effort */ }
-      })();
-    }
-
+    // Show result right away while background tasks finish
     document.getElementById('resultTitle').textContent = externalTitle || 'Unknown Book';
     document.getElementById('resultAuthor').textContent = externalAuthor || isbn;
     document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
@@ -461,6 +469,52 @@ async function lookupISBN() {
     document.getElementById('viewJourneyBtn').style.display = 'none';
     document.getElementById('setItFreeBtn').style.display = 'block';
     resultEl.classList.add('visible');
+
+    // Background: upload cover to storage and update cache with stable URL
+    if (externalCover) {
+      (async () => {
+        try {
+          const imgRes = await fetch(externalCover);
+          if (!imgRes.ok) return;
+          const blob = await imgRes.blob();
+          if (blob.size < 500 || blob.type?.startsWith('image/gif')) return;
+          const path = `covers/${isbn}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('entry-photos')
+            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+          if (!uploadError || uploadError.message === 'The resource already exists') {
+            const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
+            supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: publicUrl, p_description: null
+            });
+            if (typeof debugLog === 'function') debugLog(`isbn_metadata: cover cached to storage for ${isbn}`);
+          }
+        } catch (_) { /* best effort */ }
+      })();
+    }
+
+    // Background: fetch description and update cache
+    if (externalTitle) {
+      (async () => {
+        try {
+          const dRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
+          if (!dRes.ok) return;
+          const dData = await dRes.json();
+          const doc = dData.docs?.[0];
+          const raw = doc?.description;
+          const text = typeof raw === 'string' ? raw : (raw?.value || null);
+          const desc = sanitizeDescription(text);
+          if (desc) {
+            supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: null, p_description: desc
+            });
+            if (typeof debugLog === 'function') debugLog(`isbn_metadata: description cached for ${isbn}`);
+          }
+        } catch (_) { /* best effort */ }
+      })();
+    }
   }
 }
 
@@ -1008,53 +1062,15 @@ async function submitBookRelease() {
     return;
   }
 
-  // Prefer pendingBookData (set during lookup) over DOM values — more complete and reliable
-  const pending = pendingBookData?.isbn === isbn ? pendingBookData : null;
-  const titleEl = document.getElementById('resultTitle');
-  const authorEl = document.getElementById('resultAuthor');
-  const coverImg = document.getElementById('resultCover');
-  const title = pending?.title || (titleEl?.textContent !== '—' ? titleEl?.textContent : null) || null;
-  const author = pending?.author || (authorEl?.textContent !== '—' ? authorEl?.textContent : null) || null;
-  const externalCoverUrl = pending?.cover_url || (coverImg?.style.display !== 'none' ? coverImg?.src : null) || null;
-  const description = pending?.description || null;
-
+  // Metadata (title/author/cover/description) lives in isbn_metadata, written at lookup time.
+  // The submission only needs to record the user's passcode and release details.
   errorEl.textContent = '';
-  btn.textContent = 'Uploading…';
-  btn.disabled = true;
-
-  // Cache the cover image to Supabase Storage so it isn't lost if the external URL changes
-  let cover_url = externalCoverUrl;
-  if (externalCoverUrl) {
-    try {
-      const imgRes = await fetch(externalCoverUrl);
-      if (imgRes.ok) {
-        const blob = await imgRes.blob();
-        // Skip tiny/placeholder images (Open Library returns a 1×1 gif for missing covers)
-        if (blob.size > 500 && !blob.type?.startsWith('image/gif')) {
-          const path = `covers/${isbn}.jpg`;
-          const { error: uploadError } = await supabase.storage
-            .from('entry-photos')
-            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
-          if (!uploadError || uploadError.message === 'The resource already exists') {
-            const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
-            cover_url = publicUrl;
-            if (typeof debugLog === 'function') debugLog('submission cover: cached to storage');
-          } else {
-            if (typeof debugLog === 'function') debugLog('submission cover: upload failed — ' + uploadError.message, 'warn');
-          }
-        }
-      }
-    } catch (err) {
-      if (typeof debugLog === 'function') debugLog('submission cover: fetch error — ' + err.message, 'warn');
-      // fall back to external URL
-    }
-  }
-
   btn.textContent = 'Sending…';
+  btn.disabled = true;
 
   const { error } = await supabase
     .from('book_submissions')
-    .insert({ isbn, title, author, cover_url, description, passcode, release_note: releaseNote, released_by: releasedBy });
+    .insert({ isbn, passcode, release_note: releaseNote, released_by: releasedBy });
 
   if (error) {
     btn.textContent = 'Set It Free →';
@@ -1064,7 +1080,6 @@ async function submitBookRelease() {
     return;
   }
 
-  pendingBookData = null;
   closeReleaseDetailsModal();
   // Show confirmation in the result panel
   document.getElementById('resultTitle').textContent = 'Submitted!';
