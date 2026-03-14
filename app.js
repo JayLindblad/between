@@ -337,10 +337,9 @@ async function loadAndRenderCatalog() {
           <span class="book-card-status"></span>
           ${book.entryCount} ${book.entryCount === 1 ? 'stop' : 'stops'}
         </span>
-        <span class="book-card-location">In the wild</span>
       </div>
       <div class="locked-notice">
-        <span class="lock-icon">🔖</span>
+        <span class="lock-icon"></span>
         <span>Passcode required to read</span>
       </div>
     </div>
@@ -598,7 +597,7 @@ function resetEntryForm() {
     <div class="form-field">
       <label class="form-label">Location</label>
       <div class="location-autocomplete-wrapper">
-        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY" autocomplete="off" />
+        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Los Angeles, CA · Times Square" autocomplete="off" />
       </div>
     </div>
     <div class="form-field">
@@ -616,7 +615,7 @@ function resetEntryForm() {
     <div class="form-field">
       <label class="form-label">A photo (optional)</label>
       <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
-        <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
+        <p class="photo-upload-text" id="photoUploadText">Tap to add a photo</p>
         <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
