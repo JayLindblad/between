@@ -109,6 +109,31 @@ h1 em {
   animation: fadeUp 1s ease forwards 0.8s;
 }
 
+/* ── TWO-UP LAYOUT (scanner + release, side by side on desktop) ── */
+.two-up {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 32px 0;
+  align-items: start;
+}
+
+.two-up .scanner-section,
+.two-up .release-section {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 860px) {
+  .two-up {
+    grid-template-columns: 1fr;
+    padding: 32px 24px 0;
+  }
+}
+
 /* ── ISBN SCANNER ── */
 .scanner-section {
   max-width: 680px;
@@ -1189,6 +1214,8 @@ h1 em {
   margin: 0 auto;
   padding: 0 24px 72px;
   text-align: center;
+  opacity: 0;
+  animation: fadeUp 1s ease forwards 1.2s;
 }
 
 .release-box {
@@ -1296,6 +1323,7 @@ h1 em {
 
 @media (max-width: 600px) {
   .release-box { padding: 28px 20px; }
+  .release-section { padding-bottom: 48px; }
 }
 
 /* ── FOOTER ── */

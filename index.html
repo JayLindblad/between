@@ -21,50 +21,100 @@
     <div class="rule header-rule">✦</div>
   </header>
 
-  <!-- ISBN SCANNER -->
-  <section class="scanner-section">
-    <p class="scanner-label">Found a book with one of our stickers?</p>
-    <div class="scanner-box">
-      <p class="scanner-prompt">Scan barcode or enter ISBN</p>
+  <!-- TWO-UP: FIND A BOOK + SET A BOOK FREE -->
+  <div class="two-up">
 
-      <button class="scan-btn" onclick="openCamera()" style="margin: 0 auto 20px; display:flex;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 9V6a1 1 0 0 1 1-1h3M3 15v3a1 1 0 0 0 1 1h3M21 9V6a1 1 0 0 0-1-1h-3M21 15v3a1 1 0 0 1-1 1h-3M7 8h1M7 12h1M7 16h1M11 8h1M11 12h1M11 16h1M15 8h2M15 12h2M15 16h2"/>
-        </svg>
-        Scan Barcode
-      </button>
+    <!-- ISBN SCANNER -->
+    <section class="scanner-section">
+      <p class="scanner-label">Found a book with one of our stickers?</p>
+      <div class="scanner-box">
+        <p class="scanner-prompt">Scan barcode or enter ISBN</p>
 
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; color:var(--ink-faint); font-size:13px; font-style:italic;">
-        <div style="flex:1; height:1px; background:var(--border);"></div>
-        or type it in
-        <div style="flex:1; height:1px; background:var(--border);"></div>
-      </div>
+        <button class="scan-btn" onclick="openCamera()" style="margin: 0 auto 20px; display:flex;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 9V6a1 1 0 0 1 1-1h3M3 15v3a1 1 0 0 0 1 1h3M21 9V6a1 1 0 0 0-1-1h-3M21 15v3a1 1 0 0 1-1 1h-3M7 8h1M7 12h1M7 16h1M11 8h1M11 12h1M11 16h1M15 8h2M15 12h2M15 16h2"/>
+          </svg>
+          Scan Barcode
+        </button>
 
-      <div class="isbn-input-row">
-        <input class="isbn-input" id="isbnInput" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" />
-        <button class="isbn-btn" onclick="lookupISBN()">Find It</button>
-      </div>
-      <p class="scanner-note">The ISBN is on the back of the book, above the barcode</p>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; color:var(--ink-faint); font-size:13px; font-style:italic;">
+          <div style="flex:1; height:1px; background:var(--border);"></div>
+          or type it in
+          <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
 
-      <!-- Result panel -->
-      <div class="book-result" id="bookResult">
-        <div class="book-result-inner">
-          <div class="book-cover-wrap">
-            <img class="book-cover-img" id="resultCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
-            <div class="book-cover-placeholder" id="resultCoverPlaceholder">📖</div>
+        <div class="isbn-input-row">
+          <input class="isbn-input" id="isbnInput" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" />
+          <button class="isbn-btn" onclick="lookupISBN()">Find It</button>
+        </div>
+        <p class="scanner-note">The ISBN is on the back of the book, above the barcode</p>
+
+        <!-- Result panel -->
+        <div class="book-result" id="bookResult">
+          <div class="book-result-inner">
+            <div class="book-cover-wrap">
+              <img class="book-cover-img" id="resultCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
+              <div class="book-cover-placeholder" id="resultCoverPlaceholder">📖</div>
+            </div>
+            <div class="book-meta">
+              <h3 id="resultTitle">—</h3>
+              <p class="author" id="resultAuthor">—</p>
+              <span class="journey-count" id="resultStops">— stops along the way</span>
+            </div>
           </div>
-          <div class="book-meta">
-            <h3 id="resultTitle">—</h3>
-            <p class="author" id="resultAuthor">—</p>
-            <span class="journey-count" id="resultStops">— stops along the way</span>
+          <button class="view-journey-btn" id="viewJourneyBtn" onclick="openPasscodeModal()">
+            Read Its Journey →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RELEASE A BOOK -->
+    <section class="release-section">
+      <p class="scanner-label">Have a book you want to set free?</p>
+      <div class="release-box" id="releaseFormBox">
+
+        <!-- ISBN row -->
+        <label class="release-label" for="releaseIsbn">ISBN <span class="release-label-note">— from the back of the book, above the barcode</span></label>
+        <div class="isbn-input-row" style="margin-bottom:8px;">
+          <input class="isbn-input" id="releaseIsbn" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" oninput="previewSubmissionISBN()" />
+          <button class="isbn-btn" onclick="previewSubmissionISBN()">Look Up</button>
+        </div>
+        <p class="release-lookup-status" id="releaseLookupStatus"></p>
+
+        <!-- Book preview (hidden until ISBN found) -->
+        <div class="release-preview" id="releasePreview">
+          <div class="book-result-inner">
+            <div class="book-cover-wrap">
+              <img class="book-cover-img" id="releaseCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
+              <div class="book-cover-placeholder" id="releaseCoverPlaceholder">📖</div>
+            </div>
+            <div class="book-meta">
+              <h3 id="releaseBookTitle">—</h3>
+              <p class="author" id="releaseBookAuthor">—</p>
+            </div>
           </div>
         </div>
-        <button class="view-journey-btn" id="viewJourneyBtn" onclick="openPasscodeModal()">
-          Read Its Journey →
-        </button>
+
+        <!-- Form fields -->
+        <div class="release-field">
+          <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— 6 digits you've written inside the front cover</span></label>
+          <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
+        </div>
+        <div class="release-field">
+          <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
+          <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
+        </div>
+        <div class="release-field">
+          <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
+          <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
+        </div>
+        <p class="release-error" id="releaseError"></p>
+        <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
       </div>
-    </div>
-  </section>
+    </section>
+
+  </div>
 
   <!-- CATALOG -->
   <section class="catalog-section">
@@ -74,56 +124,6 @@
       <p class="section-subtitle">Out there, somewhere, waiting to be found...</p>
     </div>
     <div class="book-grid" id="bookGrid"></div>
-  </section>
-
-  <!-- RELEASE A BOOK -->
-  <section class="release-section">
-    <div class="section-header">
-      <div class="rule" style="max-width:300px; margin: 0 auto 16px;">✦</div>
-      <h2 class="section-title">Set a Book Free</h2>
-      <p class="section-subtitle">Have a book you want to release into the wild?</p>
-    </div>
-    <div class="release-box" id="releaseFormBox">
-      <p class="scanner-label" style="text-align:center; margin-bottom:24px;">Write a passcode inside the cover. Register it here. Leave it somewhere good.</p>
-
-      <!-- ISBN row -->
-      <label class="release-label" for="releaseIsbn">ISBN <span class="release-label-note">— from the back of the book, above the barcode</span></label>
-      <div class="isbn-input-row" style="margin-bottom:8px;">
-        <input class="isbn-input" id="releaseIsbn" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" oninput="previewSubmissionISBN()" />
-        <button class="isbn-btn" onclick="previewSubmissionISBN()">Look Up</button>
-      </div>
-      <p class="release-lookup-status" id="releaseLookupStatus"></p>
-
-      <!-- Book preview (hidden until ISBN found) -->
-      <div class="release-preview" id="releasePreview">
-        <div class="book-result-inner">
-          <div class="book-cover-wrap">
-            <img class="book-cover-img" id="releaseCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
-            <div class="book-cover-placeholder" id="releaseCoverPlaceholder">📖</div>
-          </div>
-          <div class="book-meta">
-            <h3 id="releaseBookTitle">—</h3>
-            <p class="author" id="releaseBookAuthor">—</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Form fields -->
-      <div class="release-field">
-        <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— 6 digits you've written inside the front cover</span></label>
-        <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
-      </div>
-      <div class="release-field">
-        <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
-        <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
-      </div>
-      <div class="release-field">
-        <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
-        <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
-      </div>
-      <p class="release-error" id="releaseError"></p>
-      <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
-    </div>
   </section>
 
   <!-- ABOUT -->
