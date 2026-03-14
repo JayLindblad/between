@@ -782,21 +782,6 @@ function resetEntryForm() {
   `;
   initLocationAutocomplete();
 
-  // Auto-format date input as user types
-  const dateInput = document.getElementById('entryDate');
-  if (dateInput) {
-    dateInput.addEventListener('input', (e) => {
-      let value = e.target.value.replace(/\D/g, '');
-      if (value.length > 8) value = value.slice(0, 8);
-      if (value.length >= 5) {
-        value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
-      } else if (value.length >= 3) {
-        value = value.slice(0, 2) + '/' + value.slice(2);
-      }
-      e.target.value = value;
-    });
-  }
-
   // Show filename when photo is selected
   const fileInput = document.getElementById('photoFileInput');
   if (fileInput) {
