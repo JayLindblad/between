@@ -764,7 +764,8 @@ function handlePasscodeOverlayClick(e) {
 }
 
 function verifyPasscode() {
-  const input = document.getElementById('passcodeInput').value.trim();
+  const inputEl = document.getElementById('passcodeInput');
+  const input = inputEl.value.trim();
   const errorEl = document.getElementById('passcodeError');
 
   if (!input) {
@@ -774,12 +775,21 @@ function verifyPasscode() {
 
   if (input !== String(currentBook.passcode)) {
     errorEl.textContent = 'Incorrect passcode. Check the inside cover of the book.';
-    document.getElementById('passcodeInput').select();
+    inputEl.classList.remove('passcode-input--error');
+    void inputEl.offsetWidth; // force reflow so animation restarts on repeated wrong attempts
+    inputEl.classList.add('passcode-input--error');
+    inputEl.addEventListener('animationend', () => {
+      inputEl.classList.remove('passcode-input--error');
+    }, { once: true });
+    inputEl.select();
     return;
   }
 
-  closePasscodeModal();
-  openModal();
+  inputEl.classList.add('passcode-input--success');
+  setTimeout(() => {
+    closePasscodeModal();
+    openModal();
+  }, 480);
 }
 
 // Helper called by scanner.js when a scanned ISBN is not in the database
@@ -910,7 +920,10 @@ async function submitEntry() {
   setTimeout(() => closeModal(), 2500);
 }
 
-// Enter key on passcode input
+// Auto-confirm when 6 digits are entered; still allow Enter for manual confirm
+document.getElementById('passcodeInput').addEventListener('input', () => {
+  if (document.getElementById('passcodeInput').value.trim().length === 6) verifyPasscode();
+});
 document.getElementById('passcodeInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') verifyPasscode();
 });
