@@ -1208,6 +1208,76 @@ h1 em {
   line-height: 1.7;
 }
 
+/* ── HOW TO RELEASE — 3-step cards ── */
+.release-steps-section {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 32px 64px;
+}
+
+.release-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.release-step {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 36px 32px;
+  position: relative;
+}
+
+.release-step::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(to right, var(--gold), var(--rust), var(--gold));
+}
+
+.release-step-num {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 52px;
+  font-weight: 300;
+  color: var(--gold-light);
+  line-height: 1;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.release-step-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 400;
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+
+.release-step-text {
+  font-size: 16px;
+  color: var(--ink-light);
+  line-height: 1.75;
+}
+
+.release-step-text em {
+  font-style: italic;
+  color: var(--ink);
+}
+
+@media (max-width: 860px) {
+  .release-steps {
+    grid-template-columns: 1fr;
+  }
+  .release-steps-section {
+    padding: 32px 24px 48px;
+  }
+  .release-step {
+    padding: 28px 24px;
+  }
+}
+
 /* ── RELEASE SECTION ── */
 .release-section {
   max-width: 680px;
