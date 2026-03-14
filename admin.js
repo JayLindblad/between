@@ -304,7 +304,7 @@ db.auth.getSession().then(({ data: { session } }) => {
 
 // ── Load everything ──
 async function loadAll() {
-  await Promise.all([loadStats(), loadBooks(), loadEntries()]);
+  await Promise.all([loadStats(), loadBooks(), loadEntries(), loadSubmissions()]);
 }
 
 // ── Stats ──
@@ -584,4 +584,99 @@ async function deleteEntry(id) {
   }
 
   await loadAll();
+}
+
+// ── Submissions ──
+async function loadSubmissions() {
+  const { data, error } = await db
+    .from('book_submissions')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('submissionsTableContainer');
+  const countEl = document.getElementById('submissionsCount');
+
+  if (error) {
+    container.innerHTML = `<p class="empty-state">Failed to load submissions.</p>`;
+    return;
+  }
+
+  if (!data || !data.length) {
+    countEl.textContent = '';
+    container.innerHTML = `<p class="empty-state">No pending submissions.</p>`;
+    return;
+  }
+
+  countEl.textContent = `(${data.length})`;
+
+  const rows = data.map(sub => `
+    <tr>
+      <td class="td-title" data-label="Title">${escapeHtml(sub.title || '—')}</td>
+      <td class="td-author" data-label="Author">${escapeHtml(sub.author || '—')}</td>
+      <td class="td-isbn" data-label="ISBN">${escapeHtml(sub.isbn)}</td>
+      <td class="td-isbn" data-label="Passcode" style="text-align:center; letter-spacing:0.15em;">${escapeHtml(sub.passcode)}</td>
+      <td class="td-author" data-label="Released by">${escapeHtml(sub.released_by || '—')}</td>
+      <td class="td-message" data-label="Note">${escapeHtml(sub.release_note || '—')}</td>
+      <td class="td-date" data-label="Submitted">${formatDate(sub.created_at)}</td>
+      <td class="td-actions">
+        <button class="btn-action btn-edit" onclick="approveSubmission('${sub.id}')">Approve</button>
+        <button class="btn-action btn-delete" onclick="declineSubmission('${sub.id}')">Decline</button>
+      </td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Author</th>
+          <th>ISBN</th>
+          <th style="text-align:center;">Passcode</th>
+          <th>Released by</th>
+          <th>Note</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function approveSubmission(id) {
+  const { data: sub, error: fetchError } = await db
+    .from('book_submissions')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !sub) {
+    alert('Could not load submission.');
+    return;
+  }
+
+  const { error } = await db.from('books').insert({
+    isbn: sub.isbn,
+    title: sub.title || 'Unknown Title',
+    author: sub.author || 'Unknown Author',
+    cover_url: sub.cover_url || null,
+    passcode: sub.passcode,
+    release_note: sub.release_note || null,
+    released_by: sub.released_by || null
+  });
+
+  if (error) {
+    alert('Failed to add book: ' + error.message);
+    return;
+  }
+
+  await db.from('book_submissions').delete().eq('id', id);
+  await loadAll();
+}
+
+async function declineSubmission(id) {
+  if (!confirm('Decline and remove this submission?')) return;
+  await db.from('book_submissions').delete().eq('id', id);
+  await loadSubmissions();
 }

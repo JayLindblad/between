@@ -357,24 +357,29 @@
 
       /* Card-based table layout — collapse table into stacked cards */
       #booksTableContainer .data-table,
-      #entriesTableContainer .data-table {
+      #entriesTableContainer .data-table,
+      #submissionsTableContainer .data-table {
         border: none;
         background: transparent;
         width: 100%;
       }
       #booksTableContainer .data-table thead,
-      #entriesTableContainer .data-table thead { display: none; }
+      #entriesTableContainer .data-table thead,
+      #submissionsTableContainer .data-table thead { display: none; }
       #booksTableContainer .data-table tr,
-      #entriesTableContainer .data-table tr {
+      #entriesTableContainer .data-table tr,
+      #submissionsTableContainer .data-table tr {
         display: block;
         border: 1px solid var(--border);
         margin-bottom: 10px;
         background: white;
       }
       #booksTableContainer .data-table tr:hover,
-      #entriesTableContainer .data-table tr:hover { background: white; }
+      #entriesTableContainer .data-table tr:hover,
+      #submissionsTableContainer .data-table tr:hover { background: white; }
       #booksTableContainer .data-table td,
-      #entriesTableContainer .data-table td {
+      #entriesTableContainer .data-table td,
+      #submissionsTableContainer .data-table td {
         display: flex;
         align-items: flex-start;
         gap: 12px;
@@ -384,11 +389,13 @@
         max-width: none;
       }
       #booksTableContainer .data-table tr td:last-child,
-      #entriesTableContainer .data-table tr td:last-child { border-bottom: none; }
+      #entriesTableContainer .data-table tr td:last-child,
+      #submissionsTableContainer .data-table tr td:last-child { border-bottom: none; }
 
       /* data-label prefix shown as inline column header */
       #booksTableContainer .data-table td[data-label]::before,
-      #entriesTableContainer .data-table td[data-label]::before {
+      #entriesTableContainer .data-table td[data-label]::before,
+      #submissionsTableContainer .data-table td[data-label]::before {
         content: attr(data-label);
         font-family: 'Cormorant Garamond', serif;
         font-size: 10px;
@@ -660,6 +667,15 @@
           <span style="font-size:14px; font-style:italic; color:var(--ink-faint);">50 most recent</span>
         </div>
         <div id="entriesTableContainer"></div>
+      </div>
+
+      <!-- SUBMISSIONS -->
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h2 class="admin-section-title">Submissions <span id="submissionsCount" style="font-size:16px; font-weight:300; font-style:italic; color:var(--ink-faint); margin-left:6px;"></span></h2>
+          <span style="font-size:14px; font-style:italic; color:var(--ink-faint);">Books people want to set free</span>
+        </div>
+        <div id="submissionsTableContainer"></div>
       </div>
 
     </div>

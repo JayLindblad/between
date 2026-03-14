@@ -76,6 +76,56 @@
     <div class="book-grid" id="bookGrid"></div>
   </section>
 
+  <!-- RELEASE A BOOK -->
+  <section class="release-section">
+    <div class="section-header">
+      <div class="rule" style="max-width:300px; margin: 0 auto 16px;">✦</div>
+      <h2 class="section-title">Set a Book Free</h2>
+      <p class="section-subtitle">Have a book you want to release into the wild?</p>
+    </div>
+    <div class="release-box" id="releaseFormBox">
+      <p class="scanner-label" style="text-align:center; margin-bottom:24px;">Write a passcode inside the cover. Register it here. Leave it somewhere good.</p>
+
+      <!-- ISBN row -->
+      <label class="release-label" for="releaseIsbn">ISBN <span class="release-label-note">— from the back of the book, above the barcode</span></label>
+      <div class="isbn-input-row" style="margin-bottom:8px;">
+        <input class="isbn-input" id="releaseIsbn" type="text" placeholder="e.g. 978-0-14-028329-7" maxlength="17" oninput="previewSubmissionISBN()" />
+        <button class="isbn-btn" onclick="previewSubmissionISBN()">Look Up</button>
+      </div>
+      <p class="release-lookup-status" id="releaseLookupStatus"></p>
+
+      <!-- Book preview (hidden until ISBN found) -->
+      <div class="release-preview" id="releasePreview">
+        <div class="book-result-inner">
+          <div class="book-cover-wrap">
+            <img class="book-cover-img" id="releaseCover" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="display:none">
+            <div class="book-cover-placeholder" id="releaseCoverPlaceholder">📖</div>
+          </div>
+          <div class="book-meta">
+            <h3 id="releaseBookTitle">—</h3>
+            <p class="author" id="releaseBookAuthor">—</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form fields -->
+      <div class="release-field">
+        <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— 6 digits you've written inside the front cover</span></label>
+        <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
+      </div>
+      <div class="release-field">
+        <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
+        <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
+      </div>
+      <div class="release-field">
+        <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
+        <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
+      </div>
+      <p class="release-error" id="releaseError"></p>
+      <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
+    </div>
+  </section>
+
   <!-- ABOUT -->
   <section class="about-section">
     <div class="about-inner">

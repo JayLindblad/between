@@ -922,6 +922,124 @@ async function submitEntry() {
   setTimeout(() => closeModal(), 2500);
 }
 
+// ── Submit a book for release ──
+let submissionISBNTimer = null;
+
+async function previewSubmissionISBN() {
+  const isbn = normalizeISBN(document.getElementById('releaseIsbn').value);
+  const statusEl = document.getElementById('releaseLookupStatus');
+  const previewEl = document.getElementById('releasePreview');
+
+  clearTimeout(submissionISBNTimer);
+
+  if (!/^\d{13}$/.test(isbn)) {
+    previewEl.classList.remove('visible');
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.style.color = 'var(--ink-faint)';
+  statusEl.textContent = 'Looking up…';
+
+  submissionISBNTimer = setTimeout(async () => {
+    // Open Library
+    try {
+      const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+      const data = await res.json();
+      const book = data[`ISBN:${isbn}`];
+      if (book) {
+        document.getElementById('releaseBookTitle').textContent = book.title || '—';
+        document.getElementById('releaseBookAuthor').textContent = book.authors?.map(a => a.name).join(', ') || '—';
+        const cover = book.cover?.medium || book.cover?.small || '';
+        const coverImg = document.getElementById('releaseCover');
+        const coverPlaceholder = document.getElementById('releaseCoverPlaceholder');
+        if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
+        else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
+        previewEl.classList.add('visible');
+        statusEl.textContent = '';
+        return;
+      }
+    } catch (_) { /* fall through */ }
+
+    // Google Books fallback
+    try {
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const data = await res.json();
+      const vol = data.items?.[0]?.volumeInfo;
+      if (vol) {
+        document.getElementById('releaseBookTitle').textContent = vol.title || '—';
+        document.getElementById('releaseBookAuthor').textContent = vol.authors?.join(', ') || '—';
+        const cover = vol.imageLinks?.thumbnail?.replace('http://', 'https://') || '';
+        const coverImg = document.getElementById('releaseCover');
+        const coverPlaceholder = document.getElementById('releaseCoverPlaceholder');
+        if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
+        else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
+        previewEl.classList.add('visible');
+        statusEl.textContent = '';
+        return;
+      }
+    } catch (_) { /* fall through */ }
+
+    statusEl.style.color = 'var(--ink-faint)';
+    statusEl.textContent = 'Book not found in public databases — you can still submit it';
+    previewEl.classList.remove('visible');
+  }, 600);
+}
+
+async function submitBookRelease() {
+  const isbn = normalizeISBN(document.getElementById('releaseIsbn').value);
+  const passcode = document.getElementById('releasePasscode').value.trim();
+  const releasedBy = document.getElementById('releaseReleasedBy').value.trim() || null;
+  const releaseNote = document.getElementById('releaseNote').value.trim() || null;
+  const errorEl = document.getElementById('releaseError');
+  const btn = document.querySelector('#releaseFormBox .release-btn');
+
+  if (!/^\d{13}$/.test(isbn)) {
+    errorEl.textContent = 'Please enter a valid 13-digit ISBN.';
+    document.getElementById('releaseIsbn').focus();
+    return;
+  }
+
+  if (!/^\d{6}$/.test(passcode)) {
+    errorEl.textContent = 'Passcode must be exactly 6 digits.';
+    document.getElementById('releasePasscode').focus();
+    return;
+  }
+
+  const titleEl = document.getElementById('releaseBookTitle');
+  const authorEl = document.getElementById('releaseBookAuthor');
+  const coverImg = document.getElementById('releaseCover');
+  const title = titleEl?.textContent !== '—' ? (titleEl?.textContent || null) : null;
+  const author = authorEl?.textContent !== '—' ? (authorEl?.textContent || null) : null;
+  const cover_url = coverImg?.style.display !== 'none' ? (coverImg?.src || null) : null;
+
+  errorEl.textContent = '';
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  const { error } = await supabase
+    .from('book_submissions')
+    .insert({ isbn, title, author, cover_url, passcode, release_note: releaseNote, released_by: releasedBy });
+
+  if (error) {
+    btn.textContent = 'Set It Free →';
+    btn.disabled = false;
+    errorEl.textContent = 'Something went wrong. Please try again.';
+    return;
+  }
+
+  document.getElementById('releaseFormBox').innerHTML = `
+    <div style="text-align:center; padding:48px 24px;">
+      <p style="font-family:'Cormorant Garamond',serif; font-size:28px; font-style:italic; color:var(--ink-light); margin-bottom:12px;">
+        Your book has been submitted.
+      </p>
+      <p style="font-size:16px; color:var(--ink-faint); font-style:italic; line-height:1.7;">
+        We'll add it to the movement shortly.<br>Write the passcode inside the cover — then set it free.
+      </p>
+    </div>
+  `;
+}
+
 // Auto-confirm when 6 digits are entered; still allow Enter for manual confirm
 document.getElementById('passcodeInput').addEventListener('input', () => {
   if (document.getElementById('passcodeInput').value.trim().length === 6) verifyPasscode();

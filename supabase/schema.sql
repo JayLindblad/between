@@ -106,6 +106,35 @@ as $$
     and cover_url is null;
 $$;
 
+-- ── Book Submissions ─────────────────────────────────────────────────────────
+-- Visitors submit books they want to release into the wild.
+-- Admin reviews and approves (which inserts into books) or declines.
+
+create table book_submissions (
+  id           uuid primary key default gen_random_uuid(),
+  isbn         text not null,
+  title        text,
+  author       text,
+  cover_url    text,
+  passcode     text not null,
+  release_note text,
+  released_by  text,
+  created_at   timestamptz not null default now()
+);
+
+alter table book_submissions enable row level security;
+
+create policy "public can submit books"
+  on book_submissions for insert
+  with check (true);
+
+create policy "authenticated can manage submissions"
+  on book_submissions for all
+  to authenticated
+  using (true);
+
+-- Migration: alter table book_submissions ... (new table, no migration needed)
+
 -- ── Storage ───────────────────────────────────────────────────────────────────
 -- Public bucket for entry photos (visitors upload; anyone can view)
 
