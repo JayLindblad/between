@@ -186,7 +186,8 @@ h1 em {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+  background: var(--rust);
+  opacity: 0.85;
 }
 
 .scanner-prompt {
@@ -387,7 +388,7 @@ h1 em {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(to right, var(--rust), var(--gold));
+  background: var(--rust);
   transform: scaleX(0);
   transition: transform 0.3s ease;
   transform-origin: left;
@@ -567,7 +568,7 @@ h1 em {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+  background: var(--rust);
 }
 
 .modal-top-inner {
@@ -727,7 +728,7 @@ h1 em {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(to right, var(--rust), var(--gold), var(--rust));
+  background: var(--rust);
 }
 
 .passcode-eyebrow {
