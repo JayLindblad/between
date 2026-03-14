@@ -1215,104 +1215,165 @@ h1 em {
   line-height: 1.7;
 }
 
-/* ── HOW TO RELEASE — 3-step section ── */
+/* ── HOW TO RELEASE — storybook step cards ── */
 .release-steps-section {
-  background: var(--ink);
-  padding: 80px 0;
+  background: var(--cream-dark);
+  padding: 72px 0 80px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .release-steps {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  max-width: 1280px;
+  grid-template-columns: 1fr 64px 1fr 64px 1fr;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 16px 48px 24px;
+  align-items: center;
 }
 
+/* ── The cards ── */
 .release-step {
-  padding: 48px 40px 56px;
+  background: white;
+  border: 1px solid var(--border);
+  padding: 40px 28px 36px;
   position: relative;
-  overflow: hidden;
   text-align: center;
+  /* Stacked pages effect */
+  box-shadow:
+    5px 5px 0 -1px white,
+    5px 5px 0 0 var(--border),
+    9px 9px 0 -1px var(--cream),
+    9px 9px 0 0 var(--border),
+    0 8px 28px var(--shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* Vertical divider between steps */
-.release-step + .release-step::before {
+/* Bookmark ribbon at top-right of each card */
+.release-step::before {
   content: '';
   position: absolute;
-  left: 0; top: 15%; bottom: 15%;
-  width: 1px;
-  background: linear-gradient(to bottom, transparent, rgba(184,134,11,0.25), transparent);
+  top: -1px;
+  right: 24px;
+  width: 14px;
+  height: 32px;
+  background: var(--rust);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  opacity: 0.85;
 }
 
-/* Giant watermark numeral */
+/* Hand-placed tilts */
+.release-step:first-child  { transform: rotate(-1.2deg); }
+.release-step:nth-child(3) { transform: rotate(0.6deg);  }
+.release-step:last-child   { transform: rotate(-0.8deg); }
+
+.release-step:hover {
+  transform: rotate(0deg) translateY(-4px) !important;
+  box-shadow:
+    5px 9px 0 -1px white,
+    5px 9px 0 0 var(--border),
+    9px 13px 0 -1px var(--cream),
+    9px 13px 0 0 var(--border),
+    0 16px 32px var(--shadow);
+}
+
 .release-step-num {
   display: block;
   font-family: 'Cormorant Garamond', serif;
-  font-size: 180px;
-  font-weight: 300;
-  line-height: 1;
-  color: var(--gold);
-  opacity: 0.06;
-  position: absolute;
-  top: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
-  user-select: none;
-  white-space: nowrap;
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 18px;
+  opacity: 0.8;
 }
 
 .release-step-title {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 26px;
-  font-weight: 300;
-  font-style: italic;
-  color: var(--cream);
-  margin-bottom: 20px;
-  position: relative;
+  font-size: 23px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 14px;
+  line-height: 1.2;
 }
 
-/* Gold rule under each title */
 .release-step-title::after {
   content: '';
   display: block;
-  width: 32px;
+  width: 28px;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--gold), transparent);
-  margin: 14px auto 0;
+  margin: 12px auto 0;
 }
 
 .release-step-text {
-  font-size: 16px;
-  color: rgba(245, 240, 232, 0.55);
-  line-height: 1.85;
+  font-size: 15px;
+  color: var(--ink-light);
+  line-height: 1.8;
   font-style: italic;
-  position: relative;
 }
 
 .release-step-text em {
   font-style: normal;
-  color: rgba(245, 240, 232, 0.85);
+  color: var(--ink);
 }
 
+/* ── Dotted path connectors ── */
+.release-step-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  font-size: 11px;
+  color: var(--gold);
+  opacity: 0.45;
+  position: relative;
+}
+
+.release-step-connector::before,
+.release-step-connector::after {
+  content: '';
+  flex: 1;
+  border-top: 2px dashed var(--gold);
+  opacity: 0.6;
+}
+
+.release-step-connector::before { margin-right: 8px; }
+.release-step-connector::after  { margin-left:  8px; }
+
+/* ── Mobile ── */
 @media (max-width: 860px) {
   .release-steps {
     grid-template-columns: 1fr;
-    padding: 0 24px;
+    padding: 16px 32px 24px;
   }
-  .release-steps-section {
-    padding: 56px 0;
+
+  .release-step:first-child,
+  .release-step:nth-child(3),
+  .release-step:last-child {
+    transform: none;
   }
-  .release-step {
-    padding: 52px 16px;
+
+  .release-step-connector {
+    flex-direction: column;
+    height: 44px;
+    width: 2px;
+    margin: 0 auto;
+    gap: 0;
   }
-  /* Horizontal divider between stacked steps */
-  .release-step + .release-step::before {
-    left: 15%; right: 15%;
-    top: 0; bottom: auto;
-    width: auto; height: 1px;
+
+  .release-step-connector::before,
+  .release-step-connector::after {
+    border-top: none;
+    border-left: 2px dashed var(--gold);
+    flex: 1;
+    width: 0;
+    margin: 0;
   }
+
+  .release-step-connector::before { margin-bottom: 6px; }
+  .release-step-connector::after  { margin-top:    6px; }
 }
 
 /* ── RELEASE SECTION ── */
