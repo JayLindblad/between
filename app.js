@@ -921,6 +921,24 @@ async function submitEntry() {
   setTimeout(() => closeModal(), 2500);
 }
 
+// ── Release details modal ──
+function openReleaseDetailsModal() {
+  const titleEl = document.getElementById('releaseBookTitle');
+  const title = titleEl?.textContent && titleEl.textContent !== '—' ? titleEl.textContent : null;
+  document.getElementById('releaseDetailsBookTitle').textContent = title || 'Your book';
+  document.getElementById('releaseError').textContent = '';
+  document.getElementById('releaseDetailsOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('releasePasscode').focus(), 80);
+}
+
+function closeReleaseDetailsModal() {
+  document.getElementById('releaseDetailsOverlay').classList.remove('open');
+}
+
+function handleReleaseDetailsOverlayClick(e) {
+  if (e.target === document.getElementById('releaseDetailsOverlay')) closeReleaseDetailsModal();
+}
+
 // ── Submit a book for release ──
 let submissionISBNTimer = null;
 
@@ -928,11 +946,13 @@ async function previewSubmissionISBN() {
   const isbn = normalizeISBN(document.getElementById('releaseIsbn').value);
   const statusEl = document.getElementById('releaseLookupStatus');
   const previewEl = document.getElementById('releasePreview');
+  const continueBtn = document.getElementById('releaseContinueUnknown');
 
   clearTimeout(submissionISBNTimer);
 
   if (!/^\d{13}$/.test(isbn)) {
     previewEl.classList.remove('visible');
+    continueBtn.style.display = 'none';
     statusEl.textContent = '';
     return;
   }
@@ -955,6 +975,7 @@ async function previewSubmissionISBN() {
         if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
         else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
         previewEl.classList.add('visible');
+        continueBtn.style.display = 'none';
         statusEl.textContent = '';
         return;
       }
@@ -974,6 +995,7 @@ async function previewSubmissionISBN() {
         if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
         else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
         previewEl.classList.add('visible');
+        continueBtn.style.display = 'none';
         statusEl.textContent = '';
         return;
       }
@@ -982,6 +1004,7 @@ async function previewSubmissionISBN() {
     statusEl.style.color = 'var(--ink-faint)';
     statusEl.textContent = 'Book not found in public databases — you can still submit it';
     previewEl.classList.remove('visible');
+    continueBtn.style.display = 'block';
   }, 600);
 }
 
@@ -991,7 +1014,7 @@ async function submitBookRelease() {
   const releasedBy = document.getElementById('releaseReleasedBy').value.trim() || null;
   const releaseNote = document.getElementById('releaseNote').value.trim() || null;
   const errorEl = document.getElementById('releaseError');
-  const btn = document.querySelector('#releaseFormBox .release-btn');
+  const btn = document.querySelector('.release-details-modal .release-btn');
 
   if (!/^\d{13}$/.test(isbn)) {
     errorEl.textContent = 'Please enter a valid 13-digit ISBN.';
@@ -1027,6 +1050,7 @@ async function submitBookRelease() {
     return;
   }
 
+  closeReleaseDetailsModal();
   document.getElementById('releaseFormBox').innerHTML = `
     <div style="text-align:center; padding:48px 24px;">
       <p style="font-family:'Cormorant Garamond',serif; font-size:28px; font-style:italic; color:var(--ink-light); margin-bottom:12px;">

@@ -105,23 +105,13 @@
               <p class="author" id="releaseBookAuthor">—</p>
             </div>
           </div>
+          <button class="view-journey-btn" onclick="openReleaseDetailsModal()">
+            Set It Free →
+          </button>
         </div>
 
-        <!-- Form fields -->
-        <div class="release-field">
-          <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— write betweenreaders.com and this 6-digit code inside the front cover</span></label>
-          <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
-        </div>
-        <div class="release-field">
-          <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
-          <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
-        </div>
-        <div class="release-field">
-          <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
-          <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
-        </div>
-        <p class="release-error" id="releaseError"></p>
-        <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
+        <!-- Continue button shown when ISBN is valid but book not found in databases -->
+        <button class="release-btn" id="releaseContinueUnknown" onclick="openReleaseDetailsModal()" style="display:none; margin-top:12px;">Continue →</button>
       </div>
     </section>
 
@@ -232,6 +222,29 @@
       <input class="passcode-input" id="passcodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="off" />
       <p class="passcode-error" id="passcodeError"></p>
       <button class="passcode-btn" onclick="verifyPasscode()">View Journey</button>
+    </div>
+  </div>
+
+  <!-- RELEASE DETAILS MODAL -->
+  <div class="release-details-overlay" id="releaseDetailsOverlay" onclick="handleReleaseDetailsOverlayClick(event)">
+    <div class="release-details-modal">
+      <button class="modal-close" onclick="closeReleaseDetailsModal()">✕</button>
+      <p class="passcode-eyebrow">Setting It Free</p>
+      <h3 class="passcode-book-title" id="releaseDetailsBookTitle">—</h3>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— write betweenreaders.com and this 6-digit code inside the front cover</span></label>
+        <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
+      </div>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
+        <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
+      </div>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
+        <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
+      </div>
+      <p class="release-error" id="releaseError"></p>
+      <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
     </div>
   </div>
 

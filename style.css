@@ -865,6 +865,53 @@ h1 em {
 
 .passcode-btn:hover { background: var(--ink); }
 
+/* ── RELEASE DETAILS MODAL ── */
+.release-details-overlay {
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.release-details-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 18, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: -1;
+}
+
+.release-details-overlay.open { display: flex; }
+
+.release-details-modal {
+  background: var(--cream);
+  max-width: 480px;
+  width: 100%;
+  padding: 48px 40px 40px;
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  animation: fadeUp 0.35s ease forwards;
+  text-align: center;
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+
+.release-details-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--gold), var(--rust), var(--gold));
+}
+
 /* Journey entries */
 .modal-body { padding: 32px 40px; }
 
@@ -1406,10 +1453,9 @@ h1 em {
 
 .release-preview {
   display: none;
-  margin: 16px 0 28px;
-  padding: 20px 0 28px;
+  margin: 16px 0 0;
+  padding: 20px 0 0;
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
 }
 
 .release-preview.visible { display: block; animation: fadeUp 0.4s ease forwards; }
