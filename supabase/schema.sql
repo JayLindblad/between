@@ -28,6 +28,7 @@ create table books (
 create table entries (
   id                   uuid primary key default gen_random_uuid(),
   isbn                 text not null references books(isbn) on delete cascade,
+  finder_name          text,                 -- optional name or handle of the person who found the book
   found_location       text not null,        -- geocodable place name (city/region) for map pins
   location_description text,                 -- optional free-text spot description ("on a park bench…")
   message              text,
@@ -216,3 +217,6 @@ create policy "authenticated can delete entry photos"
 --
 -- Step 7 — update the RPCs (replace cache_book_description and cache_book_cover
 --   with the versions above that target isbn_metadata instead of books).
+--
+-- Step 8 — add finder_name column to entries (if upgrading from a schema without it):
+--   alter table entries add column if not exists finder_name text;
