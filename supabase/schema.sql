@@ -67,6 +67,12 @@ create policy "public can read isbn metadata"
   on isbn_metadata for select
   using (true);
 
+-- Authenticated (admin) can update metadata (e.g. title/author edits from admin panel)
+create policy "authenticated can update isbn metadata"
+  on isbn_metadata for update
+  to authenticated
+  using (true);
+
 -- Books: public read; authenticated (admin) full write
 create policy "public can read books"
   on books for select
