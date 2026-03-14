@@ -1050,3 +1050,14 @@ document.getElementById('passcodeInput').addEventListener('keydown', e => {
 
 // ── Init ──
 loadAndRenderCatalog();
+
+async function loadPublicStats() {
+  const [{ count: bookCount }, { count: entryCount }] = await Promise.all([
+    supabase.from('books').select('*', { count: 'exact', head: true }),
+    supabase.from('entries').select('*', { count: 'exact', head: true })
+  ]);
+  if (bookCount != null) document.getElementById('statBooksCount').textContent = bookCount.toLocaleString();
+  if (entryCount != null) document.getElementById('statEntriesCount').textContent = entryCount.toLocaleString();
+}
+
+loadPublicStats();

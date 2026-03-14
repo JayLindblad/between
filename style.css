@@ -1396,6 +1396,52 @@ h1 em {
   .release-section { padding-bottom: 48px; }
 }
 
+/* ── STATS ── */
+.stats-section {
+  background: var(--ink);
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.stats-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-number {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(52px, 8vw, 80px);
+  font-weight: 300;
+  line-height: 1;
+  color: var(--cream);
+}
+
+.stat-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.stat-divider {
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
 /* ── FOOTER ── */
 footer {
   text-align: center;
