@@ -115,7 +115,8 @@ create table book_submissions (
   isbn         text not null,
   title        text,
   author       text,
-  cover_url    text,
+  cover_url    text,   -- cached to Supabase Storage (entry-photos/covers/<isbn>.jpg) at submission time
+  description  text,   -- fetched from Open Library at submission time
   passcode     text not null,
   release_note text,
   released_by  text,
@@ -133,7 +134,7 @@ create policy "authenticated can manage submissions"
   to authenticated
   using (true);
 
--- Migration: alter table book_submissions ... (new table, no migration needed)
+-- Migration: alter table book_submissions add column if not exists description text;
 
 -- ── Storage ───────────────────────────────────────────────────────────────────
 -- Public bucket for entry photos (visitors upload; anyone can view)

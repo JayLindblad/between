@@ -41,6 +41,7 @@ function normalizeISBN(raw) {
 // ── State ──
 let books = [];
 let currentBook = null;
+let pendingBookData = null; // metadata for a scanned/looked-up book not yet in the DB
 const descriptionCache = {}; // isbn → Promise<string|null>
 let journeyMap = null;
 let geocodeSession = 0;
@@ -381,6 +382,7 @@ async function lookupISBN() {
 
   if (data) {
     // Book is in the library — show journey button
+    pendingBookData = null;
     currentBook = data;
     prefetchBook(data);
     document.getElementById('resultTitle').textContent = data.title;
@@ -423,6 +425,26 @@ async function lookupISBN() {
           externalCover = vol.imageLinks?.thumbnail?.replace('http://', 'https://') || null;
         }
       } catch (_) { /* fall through */ }
+    }
+
+    // Store all fetched metadata so submitBookRelease can use it reliably
+    pendingBookData = { isbn, title: externalTitle, author: externalAuthor, cover_url: externalCover, description: null };
+
+    // Fetch description in the background — will be ready by the time the user submits
+    if (externalTitle) {
+      (async () => {
+        try {
+          const dRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
+          if (dRes.ok) {
+            const dData = await dRes.json();
+            const doc = dData.docs?.[0];
+            const raw = doc?.description;
+            const text = typeof raw === 'string' ? raw : (raw?.value || null);
+            const desc = sanitizeDescription(text);
+            if (pendingBookData?.isbn === isbn) pendingBookData.description = desc;
+          }
+        } catch (_) { /* best effort */ }
+      })();
     }
 
     document.getElementById('resultTitle').textContent = externalTitle || 'Unknown Book';
@@ -986,20 +1008,53 @@ async function submitBookRelease() {
     return;
   }
 
+  // Prefer pendingBookData (set during lookup) over DOM values — more complete and reliable
+  const pending = pendingBookData?.isbn === isbn ? pendingBookData : null;
   const titleEl = document.getElementById('resultTitle');
   const authorEl = document.getElementById('resultAuthor');
   const coverImg = document.getElementById('resultCover');
-  const title = titleEl?.textContent && titleEl.textContent !== '—' ? (titleEl.textContent || null) : null;
-  const author = authorEl?.textContent && authorEl.textContent !== '—' ? (authorEl.textContent || null) : null;
-  const cover_url = coverImg?.style.display !== 'none' ? (coverImg?.src || null) : null;
+  const title = pending?.title || (titleEl?.textContent !== '—' ? titleEl?.textContent : null) || null;
+  const author = pending?.author || (authorEl?.textContent !== '—' ? authorEl?.textContent : null) || null;
+  const externalCoverUrl = pending?.cover_url || (coverImg?.style.display !== 'none' ? coverImg?.src : null) || null;
+  const description = pending?.description || null;
 
   errorEl.textContent = '';
-  btn.textContent = 'Sending…';
+  btn.textContent = 'Uploading…';
   btn.disabled = true;
+
+  // Cache the cover image to Supabase Storage so it isn't lost if the external URL changes
+  let cover_url = externalCoverUrl;
+  if (externalCoverUrl) {
+    try {
+      const imgRes = await fetch(externalCoverUrl);
+      if (imgRes.ok) {
+        const blob = await imgRes.blob();
+        // Skip tiny/placeholder images (Open Library returns a 1×1 gif for missing covers)
+        if (blob.size > 500 && !blob.type?.startsWith('image/gif')) {
+          const path = `covers/${isbn}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('entry-photos')
+            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+          if (!uploadError || uploadError.message === 'The resource already exists') {
+            const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
+            cover_url = publicUrl;
+            if (typeof debugLog === 'function') debugLog('submission cover: cached to storage');
+          } else {
+            if (typeof debugLog === 'function') debugLog('submission cover: upload failed — ' + uploadError.message, 'warn');
+          }
+        }
+      }
+    } catch (err) {
+      if (typeof debugLog === 'function') debugLog('submission cover: fetch error — ' + err.message, 'warn');
+      // fall back to external URL
+    }
+  }
+
+  btn.textContent = 'Sending…';
 
   const { error } = await supabase
     .from('book_submissions')
-    .insert({ isbn, title, author, cover_url, passcode, release_note: releaseNote, released_by: releasedBy });
+    .insert({ isbn, title, author, cover_url, description, passcode, release_note: releaseNote, released_by: releasedBy });
 
   if (error) {
     btn.textContent = 'Set It Free →';
@@ -1009,6 +1064,7 @@ async function submitBookRelease() {
     return;
   }
 
+  pendingBookData = null;
   closeReleaseDetailsModal();
   // Show confirmation in the result panel
   document.getElementById('resultTitle').textContent = 'Submitted!';
