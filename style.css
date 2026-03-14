@@ -1,4 +1,5 @@
 :root {
+  /* Color palette */
   --cream: #f5f0e8;
   --cream-dark: #ede6d6;
   --ink: #1a1612;
@@ -8,7 +9,49 @@
   --gold: #b8860b;
   --gold-light: #d4a843;
   --border: #c8bca8;
+  --white: #ffffff;
+
+  /* Typography */
+  --font-primary: 'Cormorant Garamond', serif;
+  --font-body: 'EB Garamond', Georgia, serif;
+  --font-accent: 'Spectral', serif;
+
+  /* Shadows */
   --shadow: rgba(26, 22, 18, 0.12);
+  --shadow-heavy: rgba(26, 22, 18, 0.3);
+  --shadow-soft: rgba(0, 0, 0, 0.1);
+
+  /* Overlays */
+  --overlay: rgba(26, 22, 18, 0.7);
+  --overlay-heavy: rgba(26, 22, 18, 0.96);
+  --lightbox-bg: rgba(10, 8, 6, 0.93);
+
+  /* Gold alpha variants */
+  --gold-glow: rgba(184, 134, 11, 0.15);
+  --gold-glow-soft: rgba(184, 134, 11, 0.08);
+  --gold-glow-medium: rgba(184, 134, 11, 0.35);
+  --gold-glow-strong: rgba(184, 134, 11, 0.55);
+  --gold-tint: rgba(184, 134, 11, 0.1);
+  --gold-50: rgba(184, 134, 11, 0.5);
+  --gold-25: rgba(184, 134, 11, 0.25);
+  --gold-20: rgba(184, 134, 11, 0.2);
+
+  /* Rust alpha variant */
+  --rust-glow: rgba(163, 83, 60, 0.2);
+
+  /* Cream alpha variants (for dark backgrounds) */
+  --cream-90: rgba(245, 240, 232, 0.92);
+  --cream-75: rgba(245, 240, 232, 0.75);
+  --cream-65: rgba(245, 240, 232, 0.65);
+  --cream-60: rgba(245, 240, 232, 0.6);
+  --cream-50: rgba(245, 240, 232, 0.5);
+  --cream-30: rgba(245, 240, 232, 0.3);
+  --cream-20: rgba(245, 240, 232, 0.2);
+  --cream-15: rgba(245, 240, 232, 0.15);
+
+  /* White alpha variants */
+  --white-80: rgba(255, 255, 255, 0.8);
+  --white-06: rgba(255, 255, 255, 0.06);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,7 +61,7 @@ html { scroll-behavior: smooth; }
 body {
   background-color: var(--cream);
   color: var(--ink);
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 18px;
   line-height: 1.7;
   min-height: 100vh;
@@ -31,7 +74,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: 
+  background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 1000;
@@ -63,7 +106,7 @@ header {
 }
 
 .header-ornament {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
@@ -74,7 +117,7 @@ header {
 }
 
 h1 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: clamp(52px, 8vw, 88px);
   font-weight: 300;
   line-height: 1.05;
@@ -90,7 +133,7 @@ h1 em {
 }
 
 .tagline {
-  font-family: 'Spectral', serif;
+  font-family: var(--font-accent);
   font-style: italic;
   font-size: 19px;
   color: var(--ink-faint);
@@ -121,7 +164,7 @@ h1 em {
 }
 
 .scanner-label {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -130,11 +173,11 @@ h1 em {
 }
 
 .scanner-box {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--border);
   border-radius: 2px;
   padding: 40px 32px;
-  box-shadow: 0 4px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.8);
+  box-shadow: 0 4px 24px var(--shadow), inset 0 1px 0 var(--white-80);
   position: relative;
 }
 
@@ -147,7 +190,7 @@ h1 em {
 }
 
 .scanner-prompt {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   font-style: italic;
   color: var(--ink-light);
@@ -175,7 +218,7 @@ h1 em {
   border: none;
   outline: none;
   padding: 14px 18px;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 17px;
   background: var(--cream);
   color: var(--ink);
@@ -189,7 +232,7 @@ h1 em {
   color: var(--cream);
   border: none;
   padding: 14px 24px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -253,7 +296,7 @@ h1 em {
 }
 
 .book-meta h3 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   font-weight: 500;
   line-height: 1.2;
@@ -275,7 +318,7 @@ h1 em {
   font-size: 13px;
   letter-spacing: 0.1em;
   color: var(--ink-light);
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
 }
 
 .view-journey-btn {
@@ -286,7 +329,7 @@ h1 em {
   background: var(--rust);
   color: var(--cream);
   border: none;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 16px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -310,7 +353,7 @@ h1 em {
 }
 
 .section-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: clamp(30px, 4vw, 42px);
   font-weight: 300;
   margin: 16px 0 8px;
@@ -330,7 +373,7 @@ h1 em {
 }
 
 .book-card {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--border);
   padding: 32px 28px;
   cursor: pointer;
@@ -350,7 +393,7 @@ h1 em {
   transform-origin: left;
 }
 
-.book-card:hover { 
+.book-card:hover {
   background: var(--cream);
   transform: translateY(-2px);
   box-shadow: 0 8px 32px var(--shadow);
@@ -369,7 +412,7 @@ h1 em {
 }
 
 .book-card-number {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 12px;
   letter-spacing: 0.2em;
   color: var(--ink-faint);
@@ -377,7 +420,7 @@ h1 em {
 }
 
 .book-card-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   font-weight: 500;
   line-height: 1.2;
@@ -403,7 +446,7 @@ h1 em {
 .book-card-stops {
   font-size: 13px;
   color: var(--ink-faint);
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   letter-spacing: 0.05em;
 }
 
@@ -433,7 +476,7 @@ h1 em {
 .locked-notice {
   position: absolute;
   inset: 0;
-  background: rgba(245, 240, 232, 0.92);
+  background: var(--cream-90);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -446,7 +489,7 @@ h1 em {
 .book-card:hover .locked-notice { opacity: 1; }
 
 .locked-notice span {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 14px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -474,7 +517,7 @@ h1 em {
 .safari-toolbar-hint.active { display: block; }
 .safari-toolbar-hint > div {
   height: 100vh;
-  background-color: #1a1612;
+  background-color: var(--ink);
 }
 
 /* ── JOURNEY MODAL ── */
@@ -494,7 +537,7 @@ h1 em {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: -1;
@@ -509,7 +552,7 @@ h1 em {
   position: relative;
   z-index: 1;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  box-shadow: 0 24px 80px var(--shadow-heavy);
   animation: fadeUp 0.4s ease forwards;
 }
 
@@ -562,7 +605,7 @@ h1 em {
 .modal-close:hover { color: var(--ink); }
 
 .modal-book-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 32px;
   font-weight: 500;
   line-height: 1.15;
@@ -624,7 +667,7 @@ h1 em {
 
 .modal-release-note {
   margin-top: 28px;
-  background: white;
+  background: var(--white);
   border-left: 3px solid var(--gold);
   padding: 16px 20px;
   font-style: italic;
@@ -658,7 +701,7 @@ h1 em {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: -1;
@@ -674,7 +717,7 @@ h1 em {
   position: relative;
   z-index: 1;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  box-shadow: 0 24px 80px var(--shadow-heavy);
   animation: fadeUp 0.35s ease forwards;
   text-align: center;
 }
@@ -688,7 +731,7 @@ h1 em {
 }
 
 .passcode-eyebrow {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 11px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
@@ -697,7 +740,7 @@ h1 em {
 }
 
 .passcode-book-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 26px;
   font-weight: 500;
   line-height: 1.2;
@@ -716,9 +759,9 @@ h1 em {
 .passcode-input {
   width: 100%;
   border: 1px solid var(--border);
-  background: white;
+  background: var(--white);
   padding: 14px 18px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 30px;
   letter-spacing: 0.5em;
   text-align: center;
@@ -730,13 +773,13 @@ h1 em {
 
 .passcode-input:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(184,134,11,0.15);
+  box-shadow: 0 0 0 2px var(--gold-glow);
 }
 
 .passcode-input--error {
   animation: passcodeShake 0.45s ease;
   border-color: var(--rust) !important;
-  box-shadow: 0 0 0 2px rgba(163,83,60,0.2) !important;
+  box-shadow: 0 0 0 2px var(--rust-glow) !important;
 }
 
 .passcode-input--success {
@@ -769,8 +812,8 @@ h1 em {
     color: var(--gold);
     border-color: var(--gold);
     box-shadow:
-      0 0 0  4px rgba(184,134,11,0.55),
-      0 0 18px rgba(184,134,11,0.35);
+      0 0 0  4px var(--gold-glow-strong),
+      0 0 18px var(--gold-glow-medium);
     letter-spacing: 0.52em;
   }
   /* ripple expands — rings of light */
@@ -779,9 +822,9 @@ h1 em {
     color: var(--gold);
     border-color: var(--gold);
     box-shadow:
-      0 0 0  8px rgba(184,134,11,0.35),
-      0 0 0 18px rgba(184,134,11,0.15),
-      0 0 32px rgba(184,134,11,0.2);
+      0 0 0  8px var(--gold-glow-medium),
+      0 0 0 18px var(--gold-glow),
+      0 0 32px var(--gold-20);
     letter-spacing: 0.58em;
   }
   /* sustained glow — hold the moment */
@@ -791,9 +834,9 @@ h1 em {
     color: var(--gold);
     border-color: var(--gold);
     box-shadow:
-      0 0 0 10px rgba(184,134,11,0.25),
-      0 0 0 24px rgba(184,134,11,0.08),
-      0 0 48px rgba(184,134,11,0.15);
+      0 0 0 10px var(--gold-25),
+      0 0 0 24px var(--gold-glow-soft),
+      0 0 48px var(--gold-glow);
     letter-spacing: 0.65em;
   }
   /* dissolve — digits drift apart and fade */
@@ -824,7 +867,7 @@ h1 em {
   background: var(--rust);
   color: var(--cream);
   border: none;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -850,7 +893,7 @@ h1 em {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: -1;
@@ -866,7 +909,7 @@ h1 em {
   position: relative;
   z-index: 1;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  box-shadow: 0 24px 80px var(--shadow-heavy);
   animation: fadeUp 0.35s ease forwards;
   text-align: center;
   max-height: 90dvh;
@@ -885,7 +928,7 @@ h1 em {
 .modal-body { padding: 32px 40px; }
 
 .journey-heading {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -899,7 +942,7 @@ h1 em {
   gap: 0 20px;
   margin-bottom: 12px;
   position: relative;
-  background: white;
+  background: var(--white);
   border: 1px solid var(--border);
   padding: 20px 24px;
   align-items: start;
@@ -913,7 +956,7 @@ h1 em {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 18px;
   color: var(--ink-faint);
   flex-shrink: 0;
@@ -935,7 +978,7 @@ h1 em {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
 }
 
 .entry-location-desc,
@@ -952,7 +995,7 @@ h1 em {
 }
 
 .entry-location {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 18px;
   font-weight: 500;
 }
@@ -1013,7 +1056,7 @@ h1 em {
   position: fixed;
   inset: 0;
   z-index: 1100;
-  background: rgba(10, 8, 6, 0.93);
+  background: var(--lightbox-bg);
   align-items: center;
   justify-content: center;
 }
@@ -1032,7 +1075,7 @@ h1 em {
   right: 22px;
   background: none;
   border: none;
-  color: var(--color-cream);
+  color: var(--cream);
   font-size: 22px;
   cursor: pointer;
   line-height: 1;
@@ -1046,11 +1089,11 @@ h1 em {
 .add-entry-section {
   border-top: 1px solid var(--border);
   padding: 32px 40px;
-  background: white;
+  background: var(--white);
 }
 
 .add-entry-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   font-style: italic;
   margin-bottom: 20px;
@@ -1068,7 +1111,7 @@ h1 em {
   text-transform: uppercase;
   color: var(--ink-faint);
   margin-bottom: 6px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
 }
 
 .form-label-hint {
@@ -1091,7 +1134,7 @@ h1 em {
   background: var(--cream);
   border: 1px solid var(--gold);
   border-radius: 0 0 4px 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px var(--shadow-soft);
   z-index: 200;
   list-style: none;
   margin: 0;
@@ -1106,7 +1149,7 @@ h1 em {
 
 .location-suggestion-item {
   padding: 9px 14px;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 15px;
   color: var(--ink);
   cursor: pointer;
@@ -1115,7 +1158,7 @@ h1 em {
 
 .location-suggestion-item:hover,
 .location-suggestion-item.active {
-  background: rgba(184, 134, 11, 0.1);
+  background: var(--gold-tint);
   color: var(--ink);
 }
 
@@ -1129,7 +1172,7 @@ h1 em {
   border: 1px solid var(--border);
   background: var(--cream);
   padding: 11px 14px;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 16px;
   color: var(--ink);
   outline: none;
@@ -1139,7 +1182,7 @@ h1 em {
 
 .form-input:focus, .form-textarea:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.15);
+  box-shadow: 0 0 0 2px var(--gold-glow);
 }
 
 .form-textarea { min-height: 100px; resize: vertical; }
@@ -1153,7 +1196,7 @@ h1 em {
   transition: border-color 0.2s, background 0.2s;
 }
 
-.photo-upload:hover { border-color: var(--gold); background: white; }
+.photo-upload:hover { border-color: var(--gold); background: var(--white); }
 
 .photo-upload-text {
   font-style: italic;
@@ -1167,7 +1210,7 @@ h1 em {
   background: var(--ink);
   color: var(--cream);
   border: none;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 16px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1197,27 +1240,27 @@ h1 em {
 }
 
 .about-section .rule::before, .about-section .rule::after {
-  background: linear-gradient(to right, transparent, rgba(245,240,232,0.3), transparent);
+  background: linear-gradient(to right, transparent, var(--cream-30), transparent);
 }
 
 .about-text {
   font-size: 18px;
   line-height: 1.8;
-  color: rgba(245,240,232,0.75);
+  color: var(--cream-75);
   font-style: italic;
   margin-bottom: 20px;
 }
 
 .sticker-note {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(245,240,232,0.15);
+  background: var(--white-06);
+  border: 1px solid var(--cream-15);
   padding: 24px 28px;
   margin-top: 36px;
   text-align: left;
 }
 
 .sticker-note-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1227,7 +1270,7 @@ h1 em {
 
 .sticker-note-text {
   font-size: 15px;
-  color: rgba(245,240,232,0.65);
+  color: var(--cream-65);
   line-height: 1.7;
 }
 
@@ -1245,7 +1288,7 @@ h1 em {
   font-weight: 300;
   font-style: italic;
   text-align: center;
-  color: var(--color-ink);
+  color: var(--ink);
   padding-top: 8px;
   letter-spacing: 0.01em;
 }
@@ -1261,14 +1304,14 @@ h1 em {
 
 /* ── The cards ── */
 .release-step {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--border);
   padding: 40px 28px 36px;
   position: relative;
   text-align: center;
   /* Stacked pages effect */
   box-shadow:
-    5px 5px 0 -1px white,
+    5px 5px 0 -1px var(--white),
     5px 5px 0 0 var(--border),
     9px 9px 0 -1px var(--cream),
     9px 9px 0 0 var(--border),
@@ -1297,7 +1340,7 @@ h1 em {
 .release-step:hover {
   transform: rotate(0deg) translateY(-4px) !important;
   box-shadow:
-    5px 9px 0 -1px white,
+    5px 9px 0 -1px var(--white),
     5px 9px 0 0 var(--border),
     9px 13px 0 -1px var(--cream),
     9px 13px 0 0 var(--border),
@@ -1306,7 +1349,7 @@ h1 em {
 
 .release-step-num {
   display: block;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   font-style: italic;
   letter-spacing: 0.3em;
@@ -1317,7 +1360,7 @@ h1 em {
 }
 
 .release-step-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 23px;
   font-weight: 400;
   color: var(--ink);
@@ -1410,7 +1453,7 @@ h1 em {
 
 .release-label {
   display: block;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 12px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1430,7 +1473,7 @@ h1 em {
   border: 1px solid var(--border);
   outline: none;
   padding: 12px 16px;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 17px;
   background: var(--cream);
   color: var(--ink);
@@ -1439,7 +1482,7 @@ h1 em {
 
 .release-input:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(184,134,11,0.12);
+  box-shadow: 0 0 0 2px var(--gold-glow);
 }
 
 .release-input::placeholder { color: var(--ink-faint); font-style: italic; }
@@ -1460,7 +1503,7 @@ h1 em {
   color: var(--cream);
   border: none;
   padding: 14px 32px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1495,7 +1538,7 @@ h1 em {
 }
 
 .stat-number {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: clamp(52px, 8vw, 80px);
   font-weight: 300;
   line-height: 1;
@@ -1503,7 +1546,7 @@ h1 em {
 }
 
 .stat-label {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -1532,7 +1575,7 @@ footer {
 .camera-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 22, 18, 0.96);
+  background: var(--overlay-heavy);
   z-index: 600;
   display: none;
   flex-direction: column;
@@ -1549,7 +1592,7 @@ footer {
 }
 
 .camera-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 24px;
   font-weight: 300;
   color: var(--cream);
@@ -1568,7 +1611,7 @@ footer {
   max-width: 420px;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  border: 1px solid rgba(245,240,232,0.15);
+  border: 1px solid var(--cream-15);
 }
 
 #cameraVideo {
@@ -1597,7 +1640,7 @@ footer {
   content: '';
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(184, 134, 11, 0.5);
+  border: 1px solid var(--gold-50);
 }
 
 .reticle-inner::after {
@@ -1635,7 +1678,7 @@ footer {
 
 .camera-status {
   margin-top: 20px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -1650,10 +1693,10 @@ footer {
 .camera-close {
   margin-top: 24px;
   background: none;
-  border: 1px solid rgba(245,240,232,0.2);
-  color: rgba(245,240,232,0.6);
+  border: 1px solid var(--cream-20);
+  color: var(--cream-60);
   padding: 10px 28px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 14px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1662,7 +1705,7 @@ footer {
 }
 
 .camera-close:hover {
-  border-color: rgba(245,240,232,0.5);
+  border-color: var(--cream-50);
   color: var(--cream);
 }
 
@@ -1670,7 +1713,7 @@ footer {
   background: none;
   border: 1px solid var(--border);
   padding: 14px 18px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   letter-spacing: 0.1em;
   color: var(--ink-light);
@@ -1780,7 +1823,7 @@ footer {
 }
 
 .map-popup-place {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-primary);
   font-size: 15px;
   font-weight: 600;
   color: var(--ink);
@@ -1788,7 +1831,7 @@ footer {
 }
 
 .map-popup-date {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-style: italic;
   color: var(--ink-faint);
