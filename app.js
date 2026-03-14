@@ -446,13 +446,14 @@ async function lookupISBN() {
     }
 
     // Write initial metadata to the cache immediately (external cover URL for now)
-    supabase.rpc('cache_isbn_metadata', {
+    const { error: cacheError } = await supabase.rpc('cache_isbn_metadata', {
       p_isbn: isbn,
       p_title: externalTitle,
       p_author: externalAuthor,
       p_cover_url: externalCover,
       p_description: null
     });
+    if (cacheError) console.error('isbn_metadata cache error:', cacheError);
 
     // Show result right away while background tasks finish
     document.getElementById('resultTitle').textContent = externalTitle || 'Unknown Book';
