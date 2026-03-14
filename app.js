@@ -1011,7 +1011,7 @@ async function submitBookRelease() {
   closeReleaseDetailsModal();
   // Show confirmation in the result panel
   document.getElementById('resultTitle').textContent = 'Submitted!';
-  document.getElementById('resultAuthor').textContent = 'We'll add it to the movement shortly.';
+  document.getElementById('resultAuthor').textContent = "We\u2019ll add it to the movement shortly.";
   document.getElementById('resultStops').textContent = 'Write the passcode inside the cover — then set it free.';
   document.getElementById('viewJourneyBtn').style.display = 'none';
   document.getElementById('setItFreeBtn').style.display = 'none';
