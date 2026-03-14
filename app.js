@@ -1004,7 +1004,8 @@ async function submitBookRelease() {
   if (error) {
     btn.textContent = 'Set It Free →';
     btn.disabled = false;
-    errorEl.textContent = 'Something went wrong. Please try again.';
+    console.error('book_submissions insert error:', error);
+    errorEl.textContent = 'Something went wrong: ' + (error.message || error.code || JSON.stringify(error));
     return;
   }
 
