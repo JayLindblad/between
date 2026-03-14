@@ -1178,6 +1178,7 @@ h1 em {
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   border-radius: 0;
+  color-scheme: light;
 }
 
 .form-input::placeholder, .form-textarea::placeholder {
