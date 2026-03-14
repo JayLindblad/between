@@ -1544,6 +1544,10 @@ h1 em {
   font-weight: 300;
   line-height: 1;
   color: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1em;
 }
 
 .stat-label {
