@@ -745,7 +745,9 @@ function openPasscodeModal() {
     return;
   }
   document.getElementById('passcodeBookTitle').textContent = currentBook.title;
-  document.getElementById('passcodeInput').value = '';
+  const passcodeInput = document.getElementById('passcodeInput');
+  passcodeInput.value = '';
+  passcodeInput.classList.remove('passcode-input--success', 'passcode-input--error');
   document.getElementById('passcodeError').textContent = '';
   document.getElementById('passcodeOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
