@@ -328,6 +328,8 @@ async function loadStats() {
 }
 
 // ── Books ──
+let _entriesCountMap = {};  // Cache entry counts per ISBN
+
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
     db.from('books').select('isbn, release_note, released_by, passcode, isbn_metadata(title, author, cover_url, description)'),
@@ -364,6 +366,7 @@ async function loadBooks() {
   (entriesResult.data || []).forEach(e => {
     countMap[e.isbn] = (countMap[e.isbn] || 0) + 1;
   });
+  _entriesCountMap = countMap;  // Cache for save/cancel
 
   const rows = data.map(book => {
     const count = countMap[book.isbn] || 0;
@@ -474,6 +477,31 @@ async function addBook() {
   await loadAll();
 }
 
+function cancelEditBook(isbn) {
+  const safeIsbn = escapeHtml(isbn);
+  const row = document.getElementById(`book-row-${safeIsbn}`);
+  if (row && window._booksCache) {
+    const book = window._booksCache.find(b => b.isbn === isbn);
+    if (book) {
+      const count = _entriesCountMap[isbn] || 0;
+
+      row.className = '';
+      row.innerHTML = `
+        <td class="td-title" data-label="Title">${escapeHtml(book.title)}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(book.author)}</td>
+        <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
+        <td class="td-count" data-label="Entries">${count}</td>
+        <td class="td-message" data-label="Description" style="max-width:220px; font-style:${book.description ? 'normal' : 'italic'}; color:${book.description ? 'inherit' : 'var(--ink-faint)'};">${book.description ? escapeHtml(book.description.length > 120 ? book.description.slice(0, 120) + '…' : book.description) : 'none'}</td>
+        <td class="td-actions">
+          <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
+          <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
+        </td>
+      `;
+    }
+  }
+}
+
 function startEditBook(isbn) {
   const book = window._booksCache?.find(b => b.isbn === isbn);
   if (!book) return;
@@ -496,7 +524,7 @@ function startEditBook(isbn) {
     </td>
     <td class="td-actions">
       <button class="btn-action btn-edit" onclick="saveEditBook('${safeIsbn}')">Save</button>
-      <button class="btn-action btn-delete" onclick="loadBooks()">Cancel</button>
+      <button class="btn-action btn-delete" onclick="cancelEditBook('${safeIsbn}')">Cancel</button>
     </td>
   `;
 }
@@ -522,7 +550,28 @@ async function saveEditBook(isbn) {
     return;
   }
 
-  await loadBooks();
+  // Reload only this specific row to avoid affecting other books in edit mode
+  const row = document.getElementById(`book-row-${safeIsbn}`);
+  if (row && window._booksCache) {
+    const book = window._booksCache.find(b => b.isbn === isbn);
+    if (book) {
+      const count = _entriesCountMap[isbn] || 0;
+
+      row.className = '';
+      row.innerHTML = `
+        <td class="td-title" data-label="Title">${escapeHtml(book.title)}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(book.author)}</td>
+        <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
+        <td class="td-count" data-label="Entries">${count}</td>
+        <td class="td-message" data-label="Description" style="max-width:220px; font-style:${book.description ? 'normal' : 'italic'}; color:${book.description ? 'inherit' : 'var(--ink-faint)'};">${book.description ? escapeHtml(book.description.length > 120 ? book.description.slice(0, 120) + '…' : book.description) : 'none'}</td>
+        <td class="td-actions">
+          <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
+          <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
+        </td>
+      `;
+    }
+  }
 }
 
 async function deleteBook(isbn, title) {
