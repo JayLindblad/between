@@ -767,7 +767,7 @@ function resetEntryForm() {
       <input class="form-input" id="entryDate" type="date" />
     </div>
     <div class="form-field">
-      <label class="form-label">Message</label>
+      <label class="form-label">Message <span style="font-style:italic; text-transform:none; letter-spacing:0;"></span></label>
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
@@ -1007,14 +1007,26 @@ async function submitEntry() {
   const errorEl = document.getElementById('entryError');
   const btn = document.getElementById('submitEntryBtn');
 
-  if (!locationPlace) {
-    errorEl.textContent = 'Please enter a city or place name for the map.';
+  if (!locationPlace && !message) {
+    errorEl.textContent = 'Please enter a location and message.';
     document.getElementById('entryLocationPlace').focus();
     return;
   }
 
+  if (!locationPlace) {
+    errorEl.textContent = 'Please enter a city or place name.';
+    document.getElementById('entryLocationPlace').focus();
+    return;
+  }
+
+  if (!message) {
+    errorEl.textContent = 'Please enter a message.';
+    document.getElementById('entryMessage').focus();
+    return;
+  }
+
   errorEl.textContent = '';
-  btn.textContent = 'Leaving your mark…';
+  btn.textContent = 'Submitting...';
   btn.disabled = true;
 
   // Upload photo if one was selected
