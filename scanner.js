@@ -5,7 +5,6 @@ let videoStream = null;
 let scanInterval = null;
 let zxingReady = false;
 let readBarcodesFn = null;
-let scannerMode = 'finder'; // 'finder' | 'release'
 
 async function initZXing() {
   if (zxingReady) return true;
@@ -31,8 +30,7 @@ async function initZXing() {
   }
 }
 
-async function openCamera(mode) {
-  scannerMode = mode || 'finder';
+async function openCamera() {
   const overlay = document.getElementById('cameraOverlay');
   const status = document.getElementById('cameraStatus');
   const video = document.getElementById('cameraVideo');
@@ -50,8 +48,7 @@ async function openCamera(mode) {
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     closeCamera();
-    const inputId = scannerMode === 'release' ? 'releaseIsbn' : 'isbnInput';
-    const input = document.getElementById(inputId);
+    const input = document.getElementById('isbnInput');
     input.focus();
     input.placeholder = 'Camera not supported on this connection — type the ISBN here';
     input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -89,8 +86,7 @@ async function openCamera(mode) {
 
     if (noCamera) {
       closeCamera();
-      const inputId = scannerMode === 'release' ? 'releaseIsbn' : 'isbnInput';
-      const input = document.getElementById(inputId);
+      const input = document.getElementById('isbnInput');
       input.focus();
       input.placeholder = 'No camera found — type the ISBN here';
       input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -166,19 +162,9 @@ function onBarcodeDetected(isbn) {
 
   setTimeout(async () => {
     closeCamera();
-    if (scannerMode === 'release') {
-      document.getElementById('releaseIsbn').value = isbn;
-      previewSubmissionISBN();
-      document.querySelector('.release-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      await lookupISBN(isbn);
-      if (currentBook) {
-        openPasscodeModal();
-      } else {
-        showNotFoundResult();
-        document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
+    document.getElementById('isbnInput').value = isbn;
+    await lookupISBN();
+    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 700);
 }
 

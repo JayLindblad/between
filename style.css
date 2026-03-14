@@ -110,42 +110,11 @@ h1 em {
 }
 
 /* ── TWO-UP LAYOUT (scanner + release, side by side on desktop) ── */
-.two-up {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 48px 32px;
-  align-items: stretch;
-}
-
-.two-up .scanner-section,
-.two-up .release-section {
-  max-width: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.two-up .scanner-section .scanner-box,
-.two-up .release-section .release-box {
-  flex: 1;
-}
-
-@media (max-width: 860px) {
-  .two-up {
-    grid-template-columns: 1fr;
-    padding: 32px 24px 0;
-  }
-}
-
-/* ── ISBN SCANNER ── */
+/* ── ISBN LOOKUP ── */
 .scanner-section {
-  max-width: 680px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 56px 24px 48px;
   text-align: center;
   opacity: 0;
   animation: fadeUp 1s ease forwards 1s;
@@ -1423,51 +1392,7 @@ h1 em {
   .release-step-connector::after  { margin-top:    6px; }
 }
 
-/* ── RELEASE SECTION ── */
-.release-section {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 0 24px 72px;
-  text-align: center;
-  opacity: 0;
-  animation: fadeUp 1s ease forwards 1.2s;
-}
-
-.release-box {
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  padding: 40px 32px;
-  box-shadow: 0 4px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.8);
-  position: relative;
-  text-align: left;
-}
-
-.release-box::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(to right, var(--gold), var(--rust), var(--gold));
-}
-
-.release-preview {
-  display: none;
-  margin: 16px 0 0;
-  padding: 20px 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.release-preview.visible { display: block; animation: fadeUp 0.4s ease forwards; }
-
-.release-lookup-status {
-  font-size: 13px;
-  font-style: italic;
-  color: var(--ink-faint);
-  min-height: 18px;
-  margin-bottom: 4px;
-}
-
+/* ── RELEASE DETAILS MODAL FIELDS ── */
 .release-field {
   margin-top: 20px;
 }
@@ -1534,11 +1459,6 @@ h1 em {
 
 .release-btn:hover { background: var(--rust); }
 .release-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-@media (max-width: 600px) {
-  .release-box { padding: 28px 20px; }
-  .release-section { padding-bottom: 48px; }
-}
 
 /* ── STATS ── */
 .stats-section {

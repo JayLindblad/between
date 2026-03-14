@@ -347,28 +347,18 @@ async function loadAndRenderCatalog() {
 }
 
 // ── ISBN lookup ──
-async function lookupISBN(isbnDirect) {
-  const isbn = isbnDirect
-    ? normalizeISBN(isbnDirect)
-    : normalizeISBN(document.getElementById('isbnInput').value.trim());
+async function lookupISBN() {
+  const isbn = normalizeISBN(document.getElementById('isbnInput').value.trim());
   if (!isbn) return;
-
-  // When called directly (e.g. from scanner), skip search-field UI entirely
-  if (isbnDirect) {
-    const { data, error } = await supabase
-      .from('books')
-      .select('*, entries(*)')
-      .eq('isbn', isbn)
-      .maybeSingle();
-    currentBook = (!error && data) ? data : null;
-    return;
-  }
 
   const btn = document.querySelector('.isbn-btn');
   const resultEl = document.getElementById('bookResult');
+  const coverImg = document.getElementById('resultCover');
+  const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
 
   btn.textContent = 'Searching…';
   btn.disabled = true;
+  resultEl.classList.remove('visible');
 
   const { data, error } = await supabase
     .from('books')
@@ -384,17 +374,17 @@ async function lookupISBN(isbnDirect) {
     document.getElementById('resultAuthor').textContent = "Please try again";
     document.getElementById('resultStops').textContent = "";
     document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('setItFreeBtn').style.display = 'none';
     resultEl.classList.add('visible');
     return;
   }
 
   if (data) {
+    // Book is in the library — show journey button
     currentBook = data;
     prefetchBook(data);
     document.getElementById('resultTitle').textContent = data.title;
     document.getElementById('resultAuthor').textContent = data.author;
-    const coverImg = document.getElementById('resultCover');
-    const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
     coverImg.src = bookCoverUrl(data.isbn, data.cover_url);
     coverImg.style.display = 'block';
     coverPlaceholder.style.display = 'none';
@@ -404,15 +394,50 @@ async function lookupISBN(isbnDirect) {
         ? "No entries yet — you're the first"
         : `${count} ${count === 1 ? 'stop' : 'stops'} along the way`;
     document.getElementById('viewJourneyBtn').style.display = 'block';
+    document.getElementById('setItFreeBtn').style.display = 'none';
     resultEl.classList.add('visible');
   } else {
+    // Book not in library — look up externally so they can add it
     currentBook = null;
-    document.getElementById('resultTitle').textContent = "Not part of Between Readers";
-    document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
-    document.getElementById('resultStops').textContent = "";
+    let externalTitle = null, externalAuthor = null, externalCover = null;
+
+    try {
+      const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+      const d = await res.json();
+      const book = d[`ISBN:${isbn}`];
+      if (book) {
+        externalTitle = book.title || null;
+        externalAuthor = book.authors?.map(a => a.name).join(', ') || null;
+        externalCover = book.cover?.medium || book.cover?.small || null;
+      }
+    } catch (_) { /* fall through */ }
+
+    if (!externalTitle) {
+      try {
+        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+        const d = await res.json();
+        const vol = d.items?.[0]?.volumeInfo;
+        if (vol) {
+          externalTitle = vol.title || null;
+          externalAuthor = vol.authors?.join(', ') || null;
+          externalCover = vol.imageLinks?.thumbnail?.replace('http://', 'https://') || null;
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    document.getElementById('resultTitle').textContent = externalTitle || 'Unknown Book';
+    document.getElementById('resultAuthor').textContent = externalAuthor || isbn;
+    document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
+    if (externalCover) {
+      coverImg.src = externalCover;
+      coverImg.style.display = 'block';
+      coverPlaceholder.style.display = 'none';
+    } else {
+      coverImg.style.display = 'none';
+      coverPlaceholder.style.display = 'flex';
+    }
     document.getElementById('viewJourneyBtn').style.display = 'none';
-    document.getElementById('resultCover').style.display = 'none';
-    document.getElementById('resultCoverPlaceholder').style.display = 'flex';
+    document.getElementById('setItFreeBtn').style.display = 'block';
     resultEl.classList.add('visible');
   }
 }
@@ -923,7 +948,7 @@ async function submitEntry() {
 
 // ── Release details modal ──
 function openReleaseDetailsModal() {
-  const titleEl = document.getElementById('releaseBookTitle');
+  const titleEl = document.getElementById('resultTitle');
   const title = titleEl?.textContent && titleEl.textContent !== '—' ? titleEl.textContent : null;
   document.getElementById('releaseDetailsBookTitle').textContent = title || 'Your book';
   document.getElementById('releaseError').textContent = '';
@@ -940,76 +965,8 @@ function handleReleaseDetailsOverlayClick(e) {
 }
 
 // ── Submit a book for release ──
-let submissionISBNTimer = null;
-
-async function previewSubmissionISBN() {
-  const isbn = normalizeISBN(document.getElementById('releaseIsbn').value);
-  const statusEl = document.getElementById('releaseLookupStatus');
-  const previewEl = document.getElementById('releasePreview');
-  const continueBtn = document.getElementById('releaseContinueUnknown');
-
-  clearTimeout(submissionISBNTimer);
-
-  if (!/^\d{13}$/.test(isbn)) {
-    previewEl.classList.remove('visible');
-    continueBtn.style.display = 'none';
-    statusEl.textContent = '';
-    return;
-  }
-
-  statusEl.style.color = 'var(--ink-faint)';
-  statusEl.textContent = 'Looking up…';
-
-  submissionISBNTimer = setTimeout(async () => {
-    // Open Library
-    try {
-      const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
-      const data = await res.json();
-      const book = data[`ISBN:${isbn}`];
-      if (book) {
-        document.getElementById('releaseBookTitle').textContent = book.title || '—';
-        document.getElementById('releaseBookAuthor').textContent = book.authors?.map(a => a.name).join(', ') || '—';
-        const cover = book.cover?.medium || book.cover?.small || '';
-        const coverImg = document.getElementById('releaseCover');
-        const coverPlaceholder = document.getElementById('releaseCoverPlaceholder');
-        if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
-        else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
-        previewEl.classList.add('visible');
-        continueBtn.style.display = 'none';
-        statusEl.textContent = '';
-        return;
-      }
-    } catch (_) { /* fall through */ }
-
-    // Google Books fallback
-    try {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-      const data = await res.json();
-      const vol = data.items?.[0]?.volumeInfo;
-      if (vol) {
-        document.getElementById('releaseBookTitle').textContent = vol.title || '—';
-        document.getElementById('releaseBookAuthor').textContent = vol.authors?.join(', ') || '—';
-        const cover = vol.imageLinks?.thumbnail?.replace('http://', 'https://') || '';
-        const coverImg = document.getElementById('releaseCover');
-        const coverPlaceholder = document.getElementById('releaseCoverPlaceholder');
-        if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; coverPlaceholder.style.display = 'none'; }
-        else { coverImg.style.display = 'none'; coverPlaceholder.style.display = 'flex'; }
-        previewEl.classList.add('visible');
-        continueBtn.style.display = 'none';
-        statusEl.textContent = '';
-        return;
-      }
-    } catch (_) { /* fall through */ }
-
-    statusEl.style.color = 'var(--ink-faint)';
-    statusEl.textContent = 'Book not found in public databases — you can still submit it';
-    previewEl.classList.remove('visible');
-    continueBtn.style.display = 'block';
-  }, 600);
-}
-
 async function submitBookRelease() {
-  const isbn = normalizeISBN(document.getElementById('releaseIsbn').value);
+  const isbn = normalizeISBN(document.getElementById('isbnInput').value);
   const passcode = document.getElementById('releasePasscode').value.trim();
   const releasedBy = document.getElementById('releaseReleasedBy').value.trim() || null;
   const releaseNote = document.getElementById('releaseNote').value.trim() || null;
@@ -1018,7 +975,8 @@ async function submitBookRelease() {
 
   if (!/^\d{13}$/.test(isbn)) {
     errorEl.textContent = 'Please enter a valid 13-digit ISBN.';
-    document.getElementById('releaseIsbn').focus();
+    closeReleaseDetailsModal();
+    document.getElementById('isbnInput').focus();
     return;
   }
 
@@ -1028,11 +986,11 @@ async function submitBookRelease() {
     return;
   }
 
-  const titleEl = document.getElementById('releaseBookTitle');
-  const authorEl = document.getElementById('releaseBookAuthor');
-  const coverImg = document.getElementById('releaseCover');
-  const title = titleEl?.textContent !== '—' ? (titleEl?.textContent || null) : null;
-  const author = authorEl?.textContent !== '—' ? (authorEl?.textContent || null) : null;
+  const titleEl = document.getElementById('resultTitle');
+  const authorEl = document.getElementById('resultAuthor');
+  const coverImg = document.getElementById('resultCover');
+  const title = titleEl?.textContent && titleEl.textContent !== '—' ? (titleEl.textContent || null) : null;
+  const author = authorEl?.textContent && authorEl.textContent !== '—' ? (authorEl.textContent || null) : null;
   const cover_url = coverImg?.style.display !== 'none' ? (coverImg?.src || null) : null;
 
   errorEl.textContent = '';
@@ -1051,16 +1009,12 @@ async function submitBookRelease() {
   }
 
   closeReleaseDetailsModal();
-  document.getElementById('releaseFormBox').innerHTML = `
-    <div style="text-align:center; padding:48px 24px;">
-      <p style="font-family:'Cormorant Garamond',serif; font-size:28px; font-style:italic; color:var(--ink-light); margin-bottom:12px;">
-        Your book has been submitted.
-      </p>
-      <p style="font-size:16px; color:var(--ink-faint); font-style:italic; line-height:1.7;">
-        We'll add it to the movement shortly.<br>Write the passcode inside the cover — then set it free.
-      </p>
-    </div>
-  `;
+  // Show confirmation in the result panel
+  document.getElementById('resultTitle').textContent = 'Submitted!';
+  document.getElementById('resultAuthor').textContent = 'We'll add it to the movement shortly.';
+  document.getElementById('resultStops').textContent = 'Write the passcode inside the cover — then set it free.';
+  document.getElementById('viewJourneyBtn').style.display = 'none';
+  document.getElementById('setItFreeBtn').style.display = 'none';
 }
 
 // Auto-confirm when 6 digits are entered; still allow Enter for manual confirm
