@@ -401,6 +401,7 @@ async function lookupISBN() {
     // ── Branch 2: metadata cached from a previous lookup — no external API needed ──
     currentBook = null;
     const meta = metaResult.data;
+    debugLog(`isbn_metadata hit for ${isbn}: description=${meta.description ? meta.description.length + ' chars' : 'null'}`);
     document.getElementById('resultTitle').textContent = meta.title || 'Unknown Book';
     document.getElementById('resultAuthor').textContent = meta.author || isbn;
     document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
@@ -415,6 +416,26 @@ async function lookupISBN() {
     document.getElementById('viewJourneyBtn').style.display = 'none';
     document.getElementById('setItFreeBtn').style.display = 'block';
     resultEl.classList.add('visible');
+
+    // Background: fill in description if it wasn't cached on first lookup
+    if (!meta.description && meta.title) {
+      (async () => {
+        try {
+          debugLog(`isbn_metadata: description missing, fetching from open library for ${isbn}`);
+          const text = await fetchDescriptionText(isbn);
+          const desc = sanitizeDescription(text);
+          debugLog(`isbn_metadata: description fetch result — ${desc ? desc.length + ' chars' : 'not found'}`);
+          if (desc) {
+            const { error } = await supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: null, p_description: desc
+            });
+            if (error) debugLog(`isbn_metadata: description write failed — ${error.message}`, 'warn');
+            else debugLog(`isbn_metadata: description cached for ${isbn}`);
+          }
+        } catch (err) { debugLog(`isbn_metadata: description fetch error — ${err.message}`, 'error'); }
+      })();
+    }
 
   } else {
     // ── Branch 3: first time this ISBN has been seen — fetch externally and cache ──
@@ -502,16 +523,19 @@ async function lookupISBN() {
     if (externalTitle) {
       (async () => {
         try {
+          debugLog(`isbn_metadata: fetching description for new isbn ${isbn}`);
           const text = await fetchDescriptionText(isbn);
           const desc = sanitizeDescription(text);
+          debugLog(`isbn_metadata: description fetch result — ${desc ? desc.length + ' chars' : 'not found'}`);
           if (desc) {
-            supabase.rpc('cache_isbn_metadata', {
+            const { error } = await supabase.rpc('cache_isbn_metadata', {
               p_isbn: isbn, p_title: null, p_author: null,
               p_cover_url: null, p_description: desc
             });
-            if (typeof debugLog === 'function') debugLog(`isbn_metadata: description cached for ${isbn}`);
+            if (error) debugLog(`isbn_metadata: description write failed — ${error.message}`, 'warn');
+            else debugLog(`isbn_metadata: description cached for ${isbn}`);
           }
-        } catch (_) { /* best effort */ }
+        } catch (err) { debugLog(`isbn_metadata: description fetch error — ${err.message}`, 'error'); }
       })();
     }
   }
@@ -543,14 +567,16 @@ async function openBookDirect(bookIsbn) {
 // ── Book description ──
 async function fetchDescriptionText(isbn) {
   const searchRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=key&limit=1`);
-  if (!searchRes.ok) return null;
+  if (!searchRes.ok) { debugLog(`fetchDescriptionText: search failed (${searchRes.status})`, 'warn'); return null; }
   const searchData = await searchRes.json();
   const key = searchData.docs?.[0]?.key; // e.g. "/works/OL123W"
+  debugLog(`fetchDescriptionText: work key=${key || 'not found'}`);
   if (!key) return null;
   const workRes = await fetch(`https://openlibrary.org${key}.json`);
-  if (!workRes.ok) return null;
+  if (!workRes.ok) { debugLog(`fetchDescriptionText: work fetch failed (${workRes.status})`, 'warn'); return null; }
   const work = await workRes.json();
   const raw = work.description;
+  debugLog(`fetchDescriptionText: raw description type=${typeof raw}, value=${JSON.stringify(raw)?.slice(0, 80)}`);
   return typeof raw === 'string' ? raw : (raw?.value || null);
 }
 
