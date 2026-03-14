@@ -51,7 +51,7 @@ async function openCamera() {
     const input = document.getElementById('isbnInput');
     input.focus();
     input.placeholder = 'Camera not supported on this connection — type the ISBN here';
-    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     debugLog('mediaDevices unavailable — page likely served over HTTP', 'error');
     return;
   }
@@ -85,12 +85,11 @@ async function openCamera() {
     const denied  = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
 
     if (noCamera) {
-      // No camera hardware — close overlay and send user to ISBN input
       closeCamera();
       const input = document.getElementById('isbnInput');
       input.focus();
       input.placeholder = 'No camera found — type the ISBN here';
-      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
       status.className = 'camera-status error';
       status.textContent = denied
@@ -163,13 +162,9 @@ function onBarcodeDetected(isbn) {
 
   setTimeout(async () => {
     closeCamera();
-    await lookupISBN(isbn);
-    if (currentBook) {
-      openPasscodeModal();
-    } else {
-      showNotFoundResult();
-      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    document.getElementById('isbnInput').value = isbn;
+    await lookupISBN();
+    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 700);
 }
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Between Readers</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -21,9 +21,9 @@
     <div class="rule header-rule">✦</div>
   </header>
 
-  <!-- ISBN SCANNER -->
+  <!-- ISBN LOOKUP -->
   <section class="scanner-section">
-    <p class="scanner-label">Found a book with one of our stickers?</p>
+    <p class="scanner-label">Find a book's journey — or start one</p>
     <div class="scanner-box">
       <p class="scanner-prompt">Scan barcode or enter ISBN</p>
 
@@ -62,6 +62,33 @@
         <button class="view-journey-btn" id="viewJourneyBtn" onclick="openPasscodeModal()">
           Read Its Journey →
         </button>
+        <button class="view-journey-btn" id="setItFreeBtn" onclick="openReleaseDetailsModal()" style="display:none;">
+          Set It Free →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW TO RELEASE -->
+  <section class="release-steps-section">
+    <h2 class="release-steps-heading">Have a book you want to set free?</h2>
+    <div class="release-steps">
+      <div class="release-step">
+        <span class="release-step-num">I</span>
+        <h3 class="release-step-title">Write it in</h3>
+        <p class="release-step-text">On the inside front cover, write <em>betweenreaders.com</em> and a 6-digit passcode of your choosing. The next finder will need both.</p>
+      </div>
+      <div class="release-step-connector" aria-hidden="true">✦</div>
+      <div class="release-step">
+        <span class="release-step-num">II</span>
+        <h3 class="release-step-title">Register it here</h3>
+        <p class="release-step-text">Submit the form above with the book's ISBN and the same passcode. We'll add it to the catalog.</p>
+      </div>
+      <div class="release-step-connector" aria-hidden="true">✦</div>
+      <div class="release-step">
+        <span class="release-step-num">III</span>
+        <h3 class="release-step-title">Set it free</h3>
+        <p class="release-step-text">Leave it somewhere good — a park bench, a coffee shop, a train seat. Its journey begins with whoever finds it next.</p>
       </div>
     </div>
   </section>
@@ -70,7 +97,7 @@
   <section class="catalog-section">
     <div class="section-header">
       <div class="rule" style="max-width:300px; margin: 0 auto 16px;">✦</div>
-      <h2 class="section-title">Travelling Copies</h2>
+      <h2 class="section-title">All Books</h2>
       <p class="section-subtitle">Out there, somewhere, waiting to be found...</p>
     </div>
     <div class="book-grid" id="bookGrid"></div>
@@ -89,6 +116,21 @@
       <div class="sticker-note">
         <p class="sticker-note-title">To add your chapter</p>
         <p class="sticker-note-text">Enter the ISBN from the back of the book above. You'll find the book's page — read where it's been, then add your own entry: where you found it, a photo if you'd like, and whatever you feel like leaving behind.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats-section">
+    <div class="stats-inner">
+      <div class="stat-block">
+        <span class="stat-number" id="statBooksCount">—</span>
+        <span class="stat-label">books set free</span>
+      </div>
+      <div class="stat-divider">✦</div>
+      <div class="stat-block">
+        <span class="stat-number" id="statEntriesCount">—</span>
+        <span class="stat-label">chapters written</span>
       </div>
     </div>
   </section>
@@ -120,6 +162,9 @@
     <button class="camera-close" onclick="closeCamera()">Cancel</button>
   </div>
 
+  <!-- iOS 26 Safari toolbar tint hint (see style.css .safari-toolbar-hint) -->
+  <div class="safari-toolbar-hint" id="safariToolbarHint" aria-hidden="true"><div></div></div>
+
   <!-- PASSCODE MODAL -->
   <div class="passcode-overlay" id="passcodeOverlay" onclick="handlePasscodeOverlayClick(event)">
     <div class="passcode-modal">
@@ -130,6 +175,29 @@
       <input class="passcode-input" id="passcodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="off" />
       <p class="passcode-error" id="passcodeError"></p>
       <button class="passcode-btn" onclick="verifyPasscode()">View Journey</button>
+    </div>
+  </div>
+
+  <!-- RELEASE DETAILS MODAL -->
+  <div class="release-details-overlay" id="releaseDetailsOverlay" onclick="handleReleaseDetailsOverlayClick(event)">
+    <div class="release-details-modal">
+      <button class="modal-close" onclick="closeReleaseDetailsModal()">✕</button>
+      <p class="passcode-eyebrow">Setting It Free</p>
+      <h3 class="passcode-book-title" id="releaseDetailsBookTitle">—</h3>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releasePasscode">Passcode <span class="release-label-note">— write betweenreaders.com and this 6-digit code inside the front cover</span></label>
+        <input class="release-input" id="releasePasscode" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 481623" autocomplete="off" />
+      </div>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releaseReleasedBy">Your name <span class="release-label-note">— optional</span></label>
+        <input class="release-input" id="releaseReleasedBy" type="text" placeholder="Jay" />
+      </div>
+      <div class="release-field" style="text-align:left;">
+        <label class="release-label" for="releaseNote">Release note <span class="release-label-note">— optional, shown at the top of the book's journey</span></label>
+        <input class="release-input" id="releaseNote" type="text" placeholder="Left on a bench in Riverside Park, spring 2025…" />
+      </div>
+      <p class="release-error" id="releaseError"></p>
+      <button class="release-btn" onclick="submitBookRelease()">Set It Free →</button>
     </div>
   </div>
 
@@ -150,6 +218,10 @@
             <h2 class="modal-book-title" id="modalTitle">—</h2>
             <p class="modal-book-author" id="modalAuthor">—</p>
           </div>
+        </div>
+        <div class="modal-description-block" id="modalDescriptionBlock" style="display:none">
+          <p class="modal-book-description" id="modalDescription"></p>
+          <button class="description-toggle" id="modalDescToggle" onclick="toggleBookDescription()" style="display:none">Read more</button>
         </div>
         <div class="modal-release-note">
           <span id="modalReleaseNote">—</span>

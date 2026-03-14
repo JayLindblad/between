@@ -38,9 +38,27 @@ function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
 
+// Merges the nested isbn_metadata join result into a flat book object so the
+// rest of the code can access book.title, book.description, etc. as before.
+function flattenBook(raw) {
+  const meta = raw.isbn_metadata || {};
+  return {
+    isbn:         raw.isbn,
+    title:        meta.title,
+    author:       meta.author,
+    cover_url:    meta.cover_url,
+    description:  meta.description,
+    passcode:     raw.passcode,
+    release_note: raw.release_note,
+    released_by:  raw.released_by,
+    entries:      raw.entries
+  };
+}
+
 // ── State ──
 let books = [];
 let currentBook = null;
+const descriptionCache = {}; // isbn → Promise<string|null>
 let journeyMap = null;
 let geocodeSession = 0;
 const geocodeCache = {};
@@ -52,6 +70,46 @@ const entryMarkers = {}; // keyed by sorted entry index → L.circleMarker
 function bookCoverUrl(isbn, storedUrl) {
   if (storedUrl) return storedUrl;
   return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
+}
+
+const coverCache = {}; // isbn → Promise<string|null>
+
+async function fetchAndCacheCover(book) {
+  if (book.cover_url) return book.cover_url;
+
+  try {
+    const olUrl = `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`;
+    debugLog(`cover: fetching from open library for isbn=${book.isbn}`);
+    const res = await fetch(olUrl);
+    // Open Library returns a 1×1 gif for missing covers
+    if (!res.ok || res.headers.get('content-type')?.startsWith('image/gif')) {
+      debugLog('cover: not found on open library', 'warn');
+      return null;
+    }
+    const blob = await res.blob();
+    if (blob.size < 1000) { debugLog('cover: image too small, likely placeholder', 'warn'); return null; }
+
+    const path = `covers/${book.isbn}.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from('entry-photos')
+      .upload(path, blob, { contentType: 'image/jpeg' });
+    if (uploadError && uploadError.message !== 'The resource already exists') {
+      debugLog(`cover: upload failed — ${uploadError.message}`, 'warn');
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
+    debugLog(`cover: uploaded, caching url to db`);
+    book.cover_url = publicUrl;
+    supabase.rpc('cache_book_cover', { book_isbn: book.isbn, book_cover_url: publicUrl }).then(({ error }) => {
+      if (error) debugLog(`cover: db write failed — ${error.message}`, 'warn');
+      else debugLog('cover: cached to db');
+    });
+    return publicUrl;
+  } catch (err) {
+    debugLog(`cover: fetch failed — ${err.message}`, 'error');
+    return null;
+  }
 }
 
 // ── Geocoding ──
@@ -256,7 +314,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('isbn, title, author, cover_url'),
+    supabase.from('books').select('isbn, isbn_metadata(title, author, cover_url)'),
     supabase.from('entries').select('isbn')
   ]);
 
@@ -274,7 +332,10 @@ async function loadAndRenderCatalog() {
   });
 
   books = booksResult.data.map(b => ({
-    ...b,
+    isbn:       b.isbn,
+    title:      b.isbn_metadata?.title,
+    author:     b.isbn_metadata?.author,
+    cover_url:  b.isbn_metadata?.cover_url,
     entryCount: countMap[b.isbn] || 0
   }));
 
@@ -296,83 +357,211 @@ async function loadAndRenderCatalog() {
           <span class="book-card-status"></span>
           ${book.entryCount} ${book.entryCount === 1 ? 'stop' : 'stops'}
         </span>
-        <span class="book-card-location">In the wild</span>
       </div>
       <div class="locked-notice">
-        <span class="lock-icon">🔖</span>
-        <span>ISBN required to read</span>
+        <span class="lock-icon"></span>
+        <span>Passcode required to read</span>
       </div>
     </div>
   `).join('');
 }
 
 // ── ISBN lookup ──
-async function lookupISBN(isbnDirect) {
-  const isbn = isbnDirect
-    ? normalizeISBN(isbnDirect)
-    : normalizeISBN(document.getElementById('isbnInput').value.trim());
+async function lookupISBN() {
+  const isbn = normalizeISBN(document.getElementById('isbnInput').value.trim());
   if (!isbn) return;
-
-  // When called directly (e.g. from scanner), skip search-field UI entirely
-  if (isbnDirect) {
-    const { data, error } = await supabase
-      .from('books')
-      .select('*, entries(*)')
-      .eq('isbn', isbn)
-      .maybeSingle();
-    currentBook = (!error && data) ? data : null;
-    return;
-  }
 
   const btn = document.querySelector('.isbn-btn');
   const resultEl = document.getElementById('bookResult');
+  const coverImg = document.getElementById('resultCover');
+  const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
 
   btn.textContent = 'Searching…';
   btn.disabled = true;
+  resultEl.classList.remove('visible');
 
-  const { data, error } = await supabase
-    .from('books')
-    .select('*, entries(*)')
-    .eq('isbn', isbn)
-    .maybeSingle();
+  // Query the catalog and the metadata cache in parallel
+  const [booksResult, metaResult] = await Promise.all([
+    supabase.from('books').select('*, isbn_metadata(*), entries(*)').eq('isbn', isbn).maybeSingle(),
+    supabase.from('isbn_metadata').select('*').eq('isbn', isbn).maybeSingle()
+  ]);
 
   btn.textContent = 'Find It';
   btn.disabled = false;
 
-  if (error) {
+  if (booksResult.error) {
     document.getElementById('resultTitle').textContent = "Something went wrong";
     document.getElementById('resultAuthor').textContent = "Please try again";
     document.getElementById('resultStops').textContent = "";
     document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('setItFreeBtn').style.display = 'none';
     resultEl.classList.add('visible');
     return;
   }
 
-  if (data) {
-    currentBook = data;
-    document.getElementById('resultTitle').textContent = data.title;
-    document.getElementById('resultAuthor').textContent = data.author;
-    const coverImg = document.getElementById('resultCover');
-    const coverPlaceholder = document.getElementById('resultCoverPlaceholder');
-    coverImg.src = bookCoverUrl(data.isbn, data.cover_url);
+  if (booksResult.data) {
+    // ── Branch 1: book is in the library ──
+    currentBook = flattenBook(booksResult.data);
+    prefetchBook(currentBook);
+    document.getElementById('resultTitle').textContent = currentBook.title;
+    document.getElementById('resultAuthor').textContent = currentBook.author;
+    coverImg.src = bookCoverUrl(currentBook.isbn, currentBook.cover_url);
     coverImg.style.display = 'block';
     coverPlaceholder.style.display = 'none';
-    const count = data.entries.length;
+    const count = currentBook.entries.length;
     document.getElementById('resultStops').textContent =
       count === 0
         ? "No entries yet — you're the first"
         : `${count} ${count === 1 ? 'stop' : 'stops'} along the way`;
     document.getElementById('viewJourneyBtn').style.display = 'block';
+    document.getElementById('setItFreeBtn').style.display = 'none';
     resultEl.classList.add('visible');
-  } else {
+
+  } else if (metaResult.data) {
+    // ── Branch 2: metadata cached from a previous lookup — no external API needed ──
     currentBook = null;
-    document.getElementById('resultTitle').textContent = "Not part of Between Readers";
-    document.getElementById('resultAuthor').textContent = "This book doesn't have a sticker registered with us. If you found one on it, double-check the ISBN.";
-    document.getElementById('resultStops').textContent = "";
+    const meta = metaResult.data;
+    debugLog(`isbn_metadata hit for ${isbn}: description=${meta.description ? meta.description.length + ' chars' : 'null'}`);
+    document.getElementById('resultTitle').textContent = meta.title || 'Unknown Book';
+    document.getElementById('resultAuthor').textContent = meta.author || isbn;
+    document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
+    if (meta.cover_url) {
+      coverImg.src = meta.cover_url;
+      coverImg.style.display = 'block';
+      coverPlaceholder.style.display = 'none';
+    } else {
+      coverImg.style.display = 'none';
+      coverPlaceholder.style.display = 'flex';
+    }
     document.getElementById('viewJourneyBtn').style.display = 'none';
-    document.getElementById('resultCover').style.display = 'none';
-    document.getElementById('resultCoverPlaceholder').style.display = 'flex';
+    document.getElementById('setItFreeBtn').style.display = 'block';
     resultEl.classList.add('visible');
+
+    // Background: fill in description if it wasn't cached on first lookup
+    if (!meta.description && meta.title) {
+      (async () => {
+        try {
+          debugLog(`isbn_metadata: description missing, fetching from open library for ${isbn}`);
+          const text = await fetchDescriptionText(isbn);
+          const desc = sanitizeDescription(text);
+          debugLog(`isbn_metadata: description fetch result — ${desc ? desc.length + ' chars' : 'not found'}`);
+          if (desc) {
+            const { error } = await supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: null, p_description: desc
+            });
+            if (error) debugLog(`isbn_metadata: description write failed — ${error.message}`, 'warn');
+            else debugLog(`isbn_metadata: description cached for ${isbn}`);
+          }
+        } catch (err) { debugLog(`isbn_metadata: description fetch error — ${err.message}`, 'error'); }
+      })();
+    }
+
+  } else {
+    // ── Branch 3: first time this ISBN has been seen — fetch externally and cache ──
+    currentBook = null;
+    let externalTitle = null, externalAuthor = null, externalCover = null;
+
+    try {
+      const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+      const d = await res.json();
+      const book = d[`ISBN:${isbn}`];
+      if (book) {
+        externalTitle = book.title || null;
+        externalAuthor = book.authors?.map(a => a.name).join(', ') || null;
+        externalCover = book.cover?.large || book.cover?.medium || book.cover?.small || null;
+      }
+    } catch (_) { /* fall through */ }
+
+    if (!externalTitle) {
+      try {
+        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+        const d = await res.json();
+        const vol = d.items?.[0]?.volumeInfo;
+        if (vol) {
+          externalTitle = vol.title || null;
+          externalAuthor = vol.authors?.join(', ') || null;
+          externalCover = vol.imageLinks?.thumbnail?.replace('http://', 'https://') || null;
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // Write initial metadata to the cache immediately (external cover URL for now)
+    const { error: cacheError } = await supabase.rpc('cache_isbn_metadata', {
+      p_isbn: isbn,
+      p_title: externalTitle,
+      p_author: externalAuthor,
+      p_cover_url: externalCover,
+      p_description: null
+    });
+    if (cacheError) console.error('isbn_metadata cache error:', cacheError);
+
+    // Show result right away while background tasks finish
+    document.getElementById('resultTitle').textContent = externalTitle || 'Unknown Book';
+    document.getElementById('resultAuthor').textContent = externalAuthor || isbn;
+    document.getElementById('resultStops').textContent = 'Not yet part of Between Readers';
+    if (externalCover) {
+      coverImg.src = externalCover;
+      coverImg.style.display = 'block';
+      coverPlaceholder.style.display = 'none';
+    } else {
+      coverImg.style.display = 'none';
+      coverPlaceholder.style.display = 'flex';
+    }
+    document.getElementById('viewJourneyBtn').style.display = 'none';
+    document.getElementById('setItFreeBtn').style.display = 'block';
+    resultEl.classList.add('visible');
+
+    // Background: upload cover to storage and update cache with stable URL
+    if (externalCover) {
+      (async () => {
+        try {
+          const imgRes = await fetch(externalCover);
+          if (!imgRes.ok) return;
+          const blob = await imgRes.blob();
+          if (blob.size < 500 || blob.type?.startsWith('image/gif')) return;
+          const path = `covers/${isbn}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('entry-photos')
+            .upload(path, blob, { contentType: blob.type || 'image/jpeg' });
+          if (!uploadError) {
+            // Only upgrade isbn_metadata to the stable storage URL if the upload
+            // actually created a new file. If the file already existed (a different
+            // cover from a prior path), leave isbn_metadata.cover_url as externalCover
+            // so it continues to match what was shown in resultCover.
+            const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
+            const { error: coverCacheError } = await supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: publicUrl, p_description: null
+            });
+            if (coverCacheError) console.error('isbn_metadata cover update error:', coverCacheError);
+            else if (typeof debugLog === 'function') debugLog(`isbn_metadata: cover cached to storage for ${isbn}`);
+          } else if (uploadError.message !== 'The resource already exists') {
+            console.error('cover upload error:', uploadError);
+          }
+        } catch (e) { console.error('cover upload exception:', e); }
+      })();
+    }
+
+    // Background: fetch description and update cache
+    if (externalTitle) {
+      (async () => {
+        try {
+          debugLog(`isbn_metadata: fetching description for new isbn ${isbn}`);
+          const text = await fetchDescriptionText(isbn);
+          const desc = sanitizeDescription(text);
+          debugLog(`isbn_metadata: description fetch result — ${desc ? desc.length + ' chars' : 'not found'}`);
+          if (desc) {
+            const { error } = await supabase.rpc('cache_isbn_metadata', {
+              p_isbn: isbn, p_title: null, p_author: null,
+              p_cover_url: null, p_description: desc
+            });
+            if (error) debugLog(`isbn_metadata: description write failed — ${error.message}`, 'warn');
+            else debugLog(`isbn_metadata: description cached for ${isbn}`);
+          }
+        } catch (err) { debugLog(`isbn_metadata: description fetch error — ${err.message}`, 'error'); }
+      })();
+    }
   }
 }
 
@@ -381,19 +570,11 @@ document.getElementById('isbnInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') lookupISBN();
 });
 
-// ── Open modal from catalog (ISBN-gated) ──
+// ── Open modal from catalog ──
 async function openBookDirect(bookIsbn) {
-  const entered = prompt("Enter the ISBN from the back of the book to read its journey:");
-  if (!entered) return;
-
-  if (normalizeISBN(entered) !== normalizeISBN(bookIsbn)) {
-    alert("That ISBN doesn't match this book.");
-    return;
-  }
-
   const { data, error } = await supabase
     .from('books')
-    .select('*, entries(*)')
+    .select('*, isbn_metadata(*), entries(*)')
     .eq('isbn', bookIsbn)
     .single();
 
@@ -402,8 +583,77 @@ async function openBookDirect(bookIsbn) {
     return;
   }
 
-  currentBook = data;
-  openModal();
+  currentBook = flattenBook(data);
+  prefetchBook(currentBook);
+  openPasscodeModal();
+}
+
+// ── Book description ──
+async function fetchDescriptionText(isbn) {
+  const searchRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=key&limit=1`);
+  if (!searchRes.ok) { debugLog(`fetchDescriptionText: search failed (${searchRes.status})`, 'warn'); return null; }
+  const searchData = await searchRes.json();
+  const key = searchData.docs?.[0]?.key; // e.g. "/works/OL123W"
+  debugLog(`fetchDescriptionText: work key=${key || 'not found'}`);
+  if (!key) return null;
+  const workRes = await fetch(`https://openlibrary.org${key}.json`);
+  if (!workRes.ok) { debugLog(`fetchDescriptionText: work fetch failed (${workRes.status})`, 'warn'); return null; }
+  const work = await workRes.json();
+  const raw = work.description;
+  debugLog(`fetchDescriptionText: raw description type=${typeof raw}, value=${JSON.stringify(raw)?.slice(0, 80)}`);
+  return typeof raw === 'string' ? raw : (raw?.value || null);
+}
+
+function sanitizeDescription(text) {
+  if (!text) return null;
+  return text
+    .replace(/<[^>]*>/g, '')           // strip HTML tags
+    .replace(/\[([^\]|]+)\|[^\]]+\]/g, '$1') // wikilinks: [text|url] → text
+    .replace(/\[[^\]]*\]/g, '')        // remaining [brackets]
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // **bold** → plain
+    .replace(/\*([^*]+)\*/g, '$1')     // *italic* → plain
+    .replace(/-{4,}/g, '')             // ---- separators
+    .replace(/\n{3,}/g, '\n\n')        // collapse excess blank lines
+    .trim();
+}
+
+async function fetchAndCacheDescription(book) {
+  // If already stored in DB, return immediately
+  if (book.description) {
+    debugLog(`description: loaded from db (${book.description.length} chars)`);
+    return book.description;
+  }
+
+  // Otherwise fetch from Open Library and write back to DB
+  try {
+    debugLog(`description: fetching from open library for isbn=${book.isbn}`);
+    const text = await fetchDescriptionText(book.isbn);
+    if (text === null) { debugLog('description: not found in open library'); return null; }
+    const clean = sanitizeDescription(text);
+    debugLog(`description: ${clean ? 'fetched (' + clean.length + ' chars), writing to db' : 'not found'}`);
+    if (clean) {
+      // Write back to DB via RPC so future loads skip the API call.
+      // Uses a security definer function because the anon key can't UPDATE books directly.
+      book.description = clean;
+      supabase.rpc('cache_book_description', { book_isbn: book.isbn, book_description: clean }).then(({ error }) => {
+        if (error) debugLog(`description: db write failed — ${error.message}`, 'warn');
+        else debugLog('description: cached to db');
+      });
+    }
+    return clean;
+  } catch (err) {
+    debugLog(`description: fetch failed — ${err.message}`, 'error');
+    return null;
+  }
+}
+
+function prefetchBook(book) {
+  if (!descriptionCache[book.isbn]) {
+    descriptionCache[book.isbn] = fetchAndCacheDescription(book);
+  }
+  if (!coverCache[book.isbn]) {
+    coverCache[book.isbn] = fetchAndCacheCover(book);
+  }
 }
 
 // ── Modal ──
@@ -414,6 +664,25 @@ function openModal() {
 
   document.getElementById('modalTitle').textContent = b.title;
   document.getElementById('modalAuthor').textContent = b.author;
+  const descEl = document.getElementById('modalDescription');
+  const descBlock = document.getElementById('modalDescriptionBlock');
+  const descToggle = document.getElementById('modalDescToggle');
+  descEl.textContent = '';
+  descEl.classList.remove('expanded');
+  descBlock.classList.remove('visible');
+  descToggle.textContent = 'Read more';
+  descToggle.style.display = 'none';
+  descBlock.style.display = 'none';
+  (descriptionCache[b.isbn] || fetchAndCacheDescription(b)).then(desc => {
+    if (!desc) return;
+    descEl.textContent = desc;
+    descBlock.style.display = '';
+    // Double rAF: first lets display:'' take effect, second triggers the transition
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      descBlock.classList.add('visible');
+      descToggle.style.display = descEl.scrollHeight > descEl.offsetHeight ? '' : 'none';
+    }));
+  });
   const modalCover = document.getElementById('modalCover');
   modalCover.src = bookCoverUrl(b.isbn, b.cover_url);
   modalCover.style.display = 'block';
@@ -442,6 +711,7 @@ function openModal() {
         <div class="entry-number">${i + 1}</div>
         <div class="entry-content">
           <div class="entry-header">
+            ${entry.finder_name ? `<div class="entry-field"><span class="entry-field-label">Found by</span><span class="entry-finder-name">${escapeHtml(entry.finder_name)}</span></div>` : ''}
             <div class="entry-field">
               <span class="entry-field-label">Location</span>
               <span class="entry-location entry-location-link" onclick="focusEntryOnMap(${i})" title="Show on map">${escapeHtml(entry.found_location)}</span>
@@ -452,7 +722,7 @@ function openModal() {
             </div>
           </div>
           ${entry.location_description ? `<div class="entry-field"><span class="entry-field-label">Hiding Place</span><p class="entry-location-desc">${escapeHtml(entry.location_description)}</p></div>` : ''}
-          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Comment</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
+          ${entry.message ? `<div class="entry-field"><span class="entry-field-label">Message</span><p class="entry-message">${escapeHtml(entry.message)}</p></div>` : ''}
           ${entry.photo_url ? `<img class="entry-photo" src="${escapeHtml(transformImageUrl(entry.photo_url, 800, 75, 400))}" alt="" loading="lazy" onclick="openPhotoModal('${escapeHtml(transformImageUrl(entry.photo_url, 1600, 85))}')" >` : ''}
         </div>
       </div>
@@ -466,6 +736,7 @@ function openModal() {
 
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  document.getElementById('safariToolbarHint').classList.add('active');
 
   if (entries.length > 0) {
     // Defer map init until after the modal is visible so Leaflet can measure dimensions
@@ -478,9 +749,13 @@ function resetEntryForm() {
   section.innerHTML = `
     <p class="add-entry-title">Add your chapter</p>
     <div class="form-field">
-      <label class="form-label">City</label>
+      <label class="form-label">Your name <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional — first name only)</span></label>
+      <input class="form-input" id="entryFinderName" type="text" placeholder="e.g. Maya" autocomplete="given-name" maxlength="60" />
+    </div>
+    <div class="form-field">
+      <label class="form-label">Location</label>
       <div class="location-autocomplete-wrapper">
-        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Portland, OR · New York, NY" autocomplete="off" />
+        <input class="form-input" id="entryLocationPlace" type="text" placeholder="Los Angeles, CA · Times Square" autocomplete="off" />
       </div>
     </div>
     <div class="form-field">
@@ -492,13 +767,13 @@ function resetEntryForm() {
       <input class="form-input" id="entryDate" type="date" />
     </div>
     <div class="form-field">
-      <label class="form-label">Something to say</label>
+      <label class="form-label">Message</label>
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
       <label class="form-label">A photo <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
       <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
-        <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
+        <p class="photo-upload-text" id="photoUploadText">Tap to add a photo</p>
         <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
       </div>
     </div>
@@ -627,16 +902,20 @@ function openPasscodeModal() {
     return;
   }
   document.getElementById('passcodeBookTitle').textContent = currentBook.title;
-  document.getElementById('passcodeInput').value = '';
+  const passcodeInput = document.getElementById('passcodeInput');
+  passcodeInput.value = '';
+  passcodeInput.classList.remove('passcode-input--success', 'passcode-input--error');
   document.getElementById('passcodeError').textContent = '';
   document.getElementById('passcodeOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  document.getElementById('safariToolbarHint').classList.add('active');
   setTimeout(() => document.getElementById('passcodeInput').focus(), 50);
 }
 
 function closePasscodeModal() {
   document.getElementById('passcodeOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  document.getElementById('safariToolbarHint').classList.remove('active');
 }
 
 function handlePasscodeOverlayClick(e) {
@@ -644,7 +923,8 @@ function handlePasscodeOverlayClick(e) {
 }
 
 function verifyPasscode() {
-  const input = document.getElementById('passcodeInput').value.trim();
+  const inputEl = document.getElementById('passcodeInput');
+  const input = inputEl.value.trim();
   const errorEl = document.getElementById('passcodeError');
 
   if (!input) {
@@ -654,12 +934,21 @@ function verifyPasscode() {
 
   if (input !== String(currentBook.passcode)) {
     errorEl.textContent = 'Incorrect passcode. Check the inside cover of the book.';
-    document.getElementById('passcodeInput').select();
+    inputEl.classList.remove('passcode-input--error');
+    void inputEl.offsetWidth; // force reflow so animation restarts on repeated wrong attempts
+    inputEl.classList.add('passcode-input--error');
+    inputEl.addEventListener('animationend', () => {
+      inputEl.classList.remove('passcode-input--error');
+    }, { once: true });
+    inputEl.select();
     return;
   }
 
-  closePasscodeModal();
-  openModal();
+  inputEl.classList.add('passcode-input--success');
+  setTimeout(() => {
+    closePasscodeModal();
+    openModal();
+  }, 950);
 }
 
 // Helper called by scanner.js when a scanned ISBN is not in the database
@@ -673,6 +962,13 @@ function showNotFoundResult() {
   document.getElementById('bookResult').classList.add('visible');
 }
 
+function toggleBookDescription() {
+  const descEl = document.getElementById('modalDescription');
+  const btn = document.getElementById('modalDescToggle');
+  const expanded = descEl.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Read less' : 'Read more';
+}
+
 function closeModal() {
   geocodeSession++; // cancel any in-progress geocoding
   if (journeyMap) { journeyMap.remove(); journeyMap = null; }
@@ -680,6 +976,7 @@ function closeModal() {
   if (mapEl) mapEl.style.display = 'none';
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  document.getElementById('safariToolbarHint').classList.remove('active');
 }
 
 function handleOverlayClick(e) {
@@ -702,6 +999,7 @@ function closePhotoModal() {
 async function submitEntry() {
   if (!currentBook) return;
 
+  const finderName = document.getElementById('entryFinderName').value.trim();
   const locationPlace = document.getElementById('entryLocationPlace').value.trim();
   const locationDesc = document.getElementById('entryLocationDesc').value.trim();
   const message = document.getElementById('entryMessage').value.trim();
@@ -748,6 +1046,7 @@ async function submitEntry() {
     .from('entries')
     .insert({
       isbn: currentBook.isbn,
+      finder_name: finderName || null,
       found_location: locationPlace,
       location_description: locationDesc || null,
       message: message || null,
@@ -780,10 +1079,91 @@ async function submitEntry() {
   setTimeout(() => closeModal(), 2500);
 }
 
-// Enter key on passcode input
+// ── Release details modal ──
+function openReleaseDetailsModal() {
+  const titleEl = document.getElementById('resultTitle');
+  const title = titleEl?.textContent && titleEl.textContent !== '—' ? titleEl.textContent : null;
+  document.getElementById('releaseDetailsBookTitle').textContent = title || 'Your book';
+  document.getElementById('releaseError').textContent = '';
+  document.getElementById('releaseDetailsOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('releasePasscode').focus(), 80);
+}
+
+function closeReleaseDetailsModal() {
+  document.getElementById('releaseDetailsOverlay').classList.remove('open');
+}
+
+function handleReleaseDetailsOverlayClick(e) {
+  if (e.target === document.getElementById('releaseDetailsOverlay')) closeReleaseDetailsModal();
+}
+
+// ── Submit a book for release ──
+async function submitBookRelease() {
+  const isbn = normalizeISBN(document.getElementById('isbnInput').value);
+  const passcode = document.getElementById('releasePasscode').value.trim();
+  const releasedBy = document.getElementById('releaseReleasedBy').value.trim() || null;
+  const releaseNote = document.getElementById('releaseNote').value.trim() || null;
+  const errorEl = document.getElementById('releaseError');
+  const btn = document.querySelector('.release-details-modal .release-btn');
+
+  if (!/^\d{13}$/.test(isbn)) {
+    errorEl.textContent = 'Please enter a valid 13-digit ISBN.';
+    closeReleaseDetailsModal();
+    document.getElementById('isbnInput').focus();
+    return;
+  }
+
+  if (!/^\d{6}$/.test(passcode)) {
+    errorEl.textContent = 'Passcode must be exactly 6 digits.';
+    document.getElementById('releasePasscode').focus();
+    return;
+  }
+
+  // Metadata (title/author/cover/description) lives in isbn_metadata, written at lookup time.
+  // The submission only needs to record the user's passcode and release details.
+  errorEl.textContent = '';
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  const { error } = await supabase
+    .from('book_submissions')
+    .insert({ isbn, passcode, release_note: releaseNote, released_by: releasedBy });
+
+  if (error) {
+    btn.textContent = 'Set It Free →';
+    btn.disabled = false;
+    console.error('book_submissions insert error:', error);
+    errorEl.textContent = 'Something went wrong: ' + (error.message || error.code || JSON.stringify(error));
+    return;
+  }
+
+  closeReleaseDetailsModal();
+  // Show confirmation in the result panel
+  document.getElementById('resultTitle').textContent = 'Submitted!';
+  document.getElementById('resultAuthor').textContent = "We\u2019ll add it to the movement shortly.";
+  document.getElementById('resultStops').textContent = 'Write the passcode inside the cover — then set it free.';
+  document.getElementById('viewJourneyBtn').style.display = 'none';
+  document.getElementById('setItFreeBtn').style.display = 'none';
+}
+
+// Auto-confirm when 6 digits are entered; still allow Enter for manual confirm
+document.getElementById('passcodeInput').addEventListener('input', () => {
+  if (document.getElementById('passcodeInput').value.trim().length === 6) verifyPasscode();
+});
 document.getElementById('passcodeInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') verifyPasscode();
 });
 
 // ── Init ──
 loadAndRenderCatalog();
+
+async function loadPublicStats() {
+  const [{ count: bookCount }, { count: entryCount }] = await Promise.all([
+    supabase.from('books').select('*', { count: 'exact', head: true }),
+    supabase.from('entries').select('*', { count: 'exact', head: true })
+  ]);
+  if (bookCount != null) document.getElementById('statBooksCount').textContent = bookCount.toLocaleString();
+  if (entryCount != null) document.getElementById('statEntriesCount').textContent = entryCount.toLocaleString();
+}
+
+loadPublicStats();

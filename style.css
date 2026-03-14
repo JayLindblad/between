@@ -109,11 +109,12 @@ h1 em {
   animation: fadeUp 1s ease forwards 0.8s;
 }
 
-/* ── ISBN SCANNER ── */
+/* ── TWO-UP LAYOUT (scanner + release, side by side on desktop) ── */
+/* ── ISBN LOOKUP ── */
 .scanner-section {
-  max-width: 680px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 56px 24px 48px;
   text-align: center;
   opacity: 0;
   animation: fadeUp 1s ease forwards 1s;
@@ -455,18 +456,48 @@ h1 em {
 
 .lock-icon { font-size: 22px; }
 
+/* ── iOS 26 SAFARI TOOLBAR TINT HINT ──
+   Safari 26 samples the body background to tint its toolbar. A fixed element
+   with height < 50vh containing a 100vh child triggers the desired sampling.
+   Shown via JS when any modal is open; hidden otherwise. */
+.safari-toolbar-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: none;
+  width: 100vw;
+  height: 48px;
+  pointer-events: none;
+  z-index: 499;
+}
+.safari-toolbar-hint.active { display: block; }
+.safari-toolbar-hint > div {
+  height: 100vh;
+  background-color: #1a1612;
+}
+
 /* ── JOURNEY MODAL ── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  min-height: 100dvh;
   z-index: 500;
   display: none;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 16px;
+  padding: max(40px, env(safe-area-inset-top)) 16px max(40px, env(safe-area-inset-bottom));
   overflow-y: auto;
+}
+
+.modal-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: -1;
 }
 
 .modal-overlay.open { display: flex; }
@@ -476,6 +507,7 @@ h1 em {
   max-width: 680px;
   width: 100%;
   position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   box-shadow: 0 24px 80px rgba(26,22,18,0.3);
   animation: fadeUp 0.4s ease forwards;
@@ -541,7 +573,53 @@ h1 em {
   font-style: italic;
   color: var(--ink-faint);
   font-size: 17px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
+}
+
+.modal-description-block {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.modal-description-block.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-book-description {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-light);
+  font-style: italic;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.modal-book-description.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.description-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--rust);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+.description-toggle:hover {
+  text-decoration: underline;
 }
 
 .modal-release-note {
@@ -568,13 +646,22 @@ h1 em {
 .passcode-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 22, 18, 0.7);
+  min-height: 100dvh;
   z-index: 500;
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.passcode-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 18, 0.7);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: -1;
 }
 
 .passcode-overlay.open { display: flex; }
@@ -585,6 +672,7 @@ h1 em {
   width: 100%;
   padding: 48px 40px 40px;
   position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   box-shadow: 0 24px 80px rgba(26,22,18,0.3);
   animation: fadeUp 0.35s ease forwards;
@@ -636,13 +724,90 @@ h1 em {
   text-align: center;
   color: var(--ink);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   margin-bottom: 8px;
 }
 
 .passcode-input:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(184,134,11,0.15);
+}
+
+.passcode-input--error {
+  animation: passcodeShake 0.45s ease;
+  border-color: var(--rust) !important;
+  box-shadow: 0 0 0 2px rgba(163,83,60,0.2) !important;
+}
+
+.passcode-input--success {
+  animation: passcodeUnlock 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes passcodeShake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-7px); }
+  30%       { transform: translateX(7px); }
+  45%       { transform: translateX(-5px); }
+  60%       { transform: translateX(5px); }
+  75%       { transform: translateX(-3px); }
+  90%       { transform: translateX(3px); }
+}
+
+@keyframes passcodeUnlock {
+  /* key turns — sudden gold flash */
+  0%  {
+    transform: scale(1);
+    opacity: 1;
+    color: var(--ink);
+    border-color: var(--border);
+    box-shadow: none;
+    letter-spacing: 0.5em;
+  }
+  /* lock opens — bloom outward */
+  10% {
+    transform: scale(1.05);
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0  4px rgba(184,134,11,0.55),
+      0 0 18px rgba(184,134,11,0.35);
+    letter-spacing: 0.52em;
+  }
+  /* ripple expands — rings of light */
+  30% {
+    transform: scale(1.03);
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0  8px rgba(184,134,11,0.35),
+      0 0 0 18px rgba(184,134,11,0.15),
+      0 0 32px rgba(184,134,11,0.2);
+    letter-spacing: 0.58em;
+  }
+  /* sustained glow — hold the moment */
+  58% {
+    transform: scale(1.04);
+    opacity: 1;
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0 10px rgba(184,134,11,0.25),
+      0 0 0 24px rgba(184,134,11,0.08),
+      0 0 48px rgba(184,134,11,0.15);
+    letter-spacing: 0.65em;
+  }
+  /* dissolve — digits drift apart and fade */
+  100% {
+    transform: scale(1.06);
+    opacity: 0;
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0 14px rgba(184,134,11,0),
+      0 0 0 32px rgba(184,134,11,0),
+      0 0 64px rgba(184,134,11,0);
+    letter-spacing: 0.85em;
+  }
 }
 
 .passcode-error {
@@ -668,6 +833,53 @@ h1 em {
 }
 
 .passcode-btn:hover { background: var(--ink); }
+
+/* ── RELEASE DETAILS MODAL ── */
+.release-details-overlay {
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.release-details-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 18, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: -1;
+}
+
+.release-details-overlay.open { display: flex; }
+
+.release-details-modal {
+  background: var(--cream);
+  max-width: 480px;
+  width: 100%;
+  padding: 48px 40px 40px;
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(26,22,18,0.3);
+  animation: fadeUp 0.35s ease forwards;
+  text-align: center;
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+
+.release-details-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--gold), var(--rust), var(--gold));
+}
 
 /* Journey entries */
 .modal-body { padding: 32px 40px; }
@@ -747,15 +959,23 @@ h1 em {
 
 .entry-location-link {
   cursor: pointer;
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin: -1px -5px;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  color: var(--rust);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--rust);
+  text-underline-offset: 3px;
+  transition: text-decoration-style 0.2s ease, opacity 0.2s ease;
+}
+
+.entry-location-link::before {
+  content: '⌖ ';
+  font-size: 0.8em;
+  opacity: 0.7;
 }
 
 .entry-location-link:hover {
-  color: var(--rust);
-  background-color: rgba(184, 134, 11, 0.13);
+  text-decoration-style: solid;
+  opacity: 0.8;
 }
 
 .entry-date {
@@ -1009,6 +1229,292 @@ h1 em {
   font-size: 15px;
   color: rgba(245,240,232,0.65);
   line-height: 1.7;
+}
+
+/* ── HOW TO RELEASE — storybook step cards ── */
+.release-steps-section {
+  background: var(--cream-dark);
+  padding: 72px 0 80px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.release-steps-heading {
+  font-family: var(--font-primary);
+  font-size: 28px;
+  font-weight: 300;
+  font-style: italic;
+  text-align: center;
+  color: var(--color-ink);
+  padding-top: 8px;
+  letter-spacing: 0.01em;
+}
+
+.release-steps {
+  display: grid;
+  grid-template-columns: 1fr 64px 1fr 64px 1fr;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px 48px 24px;
+  align-items: center;
+}
+
+/* ── The cards ── */
+.release-step {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 40px 28px 36px;
+  position: relative;
+  text-align: center;
+  /* Stacked pages effect */
+  box-shadow:
+    5px 5px 0 -1px white,
+    5px 5px 0 0 var(--border),
+    9px 9px 0 -1px var(--cream),
+    9px 9px 0 0 var(--border),
+    0 8px 28px var(--shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Bookmark ribbon at top-right of each card */
+.release-step::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 24px;
+  width: 14px;
+  height: 32px;
+  background: var(--rust);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  opacity: 0.85;
+}
+
+/* Hand-placed tilts */
+.release-step:first-child  { transform: rotate(-1.2deg); }
+.release-step:nth-child(3) { transform: rotate(0.6deg);  }
+.release-step:last-child   { transform: rotate(-0.8deg); }
+
+.release-step:hover {
+  transform: rotate(0deg) translateY(-4px) !important;
+  box-shadow:
+    5px 9px 0 -1px white,
+    5px 9px 0 0 var(--border),
+    9px 13px 0 -1px var(--cream),
+    9px 13px 0 0 var(--border),
+    0 16px 32px var(--shadow);
+}
+
+.release-step-num {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 18px;
+  opacity: 0.8;
+}
+
+.release-step-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 23px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 14px;
+  line-height: 1.2;
+}
+
+.release-step-title::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold), transparent);
+  margin: 12px auto 0;
+}
+
+.release-step-text {
+  font-size: 15px;
+  color: var(--ink-light);
+  line-height: 1.8;
+  font-style: italic;
+}
+
+.release-step-text em {
+  font-style: normal;
+  color: var(--ink);
+}
+
+/* ── Dotted path connectors ── */
+.release-step-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  font-size: 11px;
+  color: var(--gold);
+  opacity: 0.45;
+  position: relative;
+}
+
+.release-step-connector::before,
+.release-step-connector::after {
+  content: '';
+  flex: 1;
+  border-top: 2px dashed var(--gold);
+  opacity: 0.6;
+}
+
+.release-step-connector::before { margin-right: 8px; }
+.release-step-connector::after  { margin-left:  8px; }
+
+/* ── Mobile ── */
+@media (max-width: 860px) {
+  .release-steps {
+    grid-template-columns: 1fr;
+    padding: 16px 32px 24px;
+  }
+
+  .release-step:first-child,
+  .release-step:nth-child(3),
+  .release-step:last-child {
+    transform: none;
+  }
+
+  .release-step-connector {
+    flex-direction: column;
+    height: 44px;
+    width: 2px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .release-step-connector::before,
+  .release-step-connector::after {
+    border-top: none;
+    border-left: 2px dashed var(--gold);
+    flex: 1;
+    width: 0;
+    margin: 0;
+  }
+
+  .release-step-connector::before { margin-bottom: 6px; }
+  .release-step-connector::after  { margin-top:    6px; }
+}
+
+/* ── RELEASE DETAILS MODAL FIELDS ── */
+.release-field {
+  margin-top: 20px;
+}
+
+.release-label {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+
+.release-label-note {
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+
+.release-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  outline: none;
+  padding: 12px 16px;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 17px;
+  background: var(--cream);
+  color: var(--ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.release-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(184,134,11,0.12);
+}
+
+.release-input::placeholder { color: var(--ink-faint); font-style: italic; }
+
+.release-error {
+  color: var(--rust);
+  font-style: italic;
+  font-size: 14px;
+  min-height: 20px;
+  margin-top: 16px;
+}
+
+.release-btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  background: var(--ink);
+  color: var(--cream);
+  border: none;
+  padding: 14px 32px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.release-btn:hover { background: var(--rust); }
+.release-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── STATS ── */
+.stats-section {
+  background: var(--ink);
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.stats-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-number {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(52px, 8vw, 80px);
+  font-weight: 300;
+  line-height: 1;
+  color: var(--cream);
+}
+
+.stat-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.stat-divider {
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
 }
 
 /* ── FOOTER ── */

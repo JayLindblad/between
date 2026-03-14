@@ -304,7 +304,7 @@ db.auth.getSession().then(({ data: { session } }) => {
 
 // ── Load everything ──
 async function loadAll() {
-  await Promise.all([loadStats(), loadBooks(), loadEntries()]);
+  await Promise.all([loadStats(), loadBooks(), loadEntries(), loadSubmissions()]);
 }
 
 // ── Stats ──
@@ -330,7 +330,7 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode'),
+    db.from('books').select('isbn, release_note, released_by, passcode, isbn_metadata(title, author, cover_url, description)'),
     db.from('entries').select('isbn')
   ]);
 
@@ -343,7 +343,17 @@ async function loadBooks() {
     return;
   }
 
-  const data = booksResult.data || [];
+  // Flatten isbn_metadata join into each book object
+  const data = (booksResult.data || []).map(b => ({
+    isbn:         b.isbn,
+    title:        b.isbn_metadata?.title,
+    author:       b.isbn_metadata?.author,
+    cover_url:    b.isbn_metadata?.cover_url,
+    description:  b.isbn_metadata?.description,
+    passcode:     b.passcode,
+    release_note: b.release_note,
+    released_by:  b.released_by
+  }));
 
   if (!data.length) {
     container.innerHTML = `<p class="empty-state">No books yet. Add the first one above.</p>`;
@@ -365,6 +375,7 @@ async function loadBooks() {
         <td class="td-isbn" data-label="ISBN">${safeIsbn}</td>
         <td class="td-isbn" data-label="Passcode" style="text-align:center;">${escapeHtml(book.passcode || '—')}</td>
         <td class="td-count" data-label="Entries">${count}</td>
+        <td class="td-message" data-label="Description" style="max-width:220px; font-style:${book.description ? 'normal' : 'italic'}; color:${book.description ? 'inherit' : 'var(--ink-faint)'};">${book.description ? escapeHtml(book.description.length > 120 ? book.description.slice(0, 120) + '…' : book.description) : 'none'}</td>
         <td class="td-actions">
           <button class="btn-action btn-edit" onclick="startEditBook('${safeIsbn}')">Edit</button>
           <button class="btn-action btn-delete" onclick="deleteBook('${safeIsbn}', '${escapeHtml(book.title)}')">Delete</button>
@@ -382,6 +393,7 @@ async function loadBooks() {
           <th>ISBN</th>
           <th style="text-align:center;">Passcode</th>
           <th style="text-align:center;">Entries</th>
+          <th>Description</th>
           <th></th>
         </tr>
       </thead>
@@ -438,9 +450,20 @@ async function addBook() {
 
   errorEl.textContent = '';
 
+  // Ensure isbn_metadata exists (may already be there from a prior scan)
+  const { error: metaError } = await db
+    .from('isbn_metadata')
+    .upsert({ isbn, title, author, cover_url }, { onConflict: 'isbn', ignoreDuplicates: false });
+
+  if (metaError) {
+    errorEl.textContent = 'Metadata error: ' + metaError.message;
+    return;
+  }
+
+  // Insert the thin books row (metadata lives in isbn_metadata)
   const { error } = await db
     .from('books')
-    .insert({ isbn, title, author, cover_url, release_note, released_by, passcode });
+    .insert({ isbn, release_note, released_by, passcode });
 
   if (error) {
     errorEl.textContent = error.message;
@@ -468,6 +491,9 @@ function startEditBook(isbn) {
     <td data-label="Cover URL">
       <input id="edit-cover-${safeIsbn}" value="${escapeHtml(book.cover_url || '')}" placeholder="Cover URL" style="font-size:12px;" />
     </td>
+    <td data-label="Description" style="min-width:200px;">
+      <textarea id="edit-description-${safeIsbn}" placeholder="Auto-fetched — clear to re-fetch" rows="3" style="width:100%; font-size:12px; resize:vertical;">${escapeHtml(book.description || '')}</textarea>
+    </td>
     <td class="td-actions">
       <button class="btn-action btn-edit" onclick="saveEditBook('${safeIsbn}')">Save</button>
       <button class="btn-action btn-delete" onclick="loadBooks()">Cancel</button>
@@ -481,16 +507,18 @@ async function saveEditBook(isbn) {
   const author = document.getElementById(`edit-author-${safeIsbn}`).value.trim();
   const cover_url = document.getElementById(`edit-cover-${safeIsbn}`).value.trim() || null;
   const passcode = document.getElementById(`edit-passcode-${safeIsbn}`).value.trim() || null;
+  const description = document.getElementById(`edit-description-${safeIsbn}`).value.trim() || null;
 
   if (!title || !author) return;
 
-  const { error } = await db
-    .from('books')
-    .update({ title, author, cover_url, passcode })
-    .eq('isbn', isbn);
+  // Metadata lives in isbn_metadata; book-specific fields stay in books
+  const [{ error: metaError }, { error: bookError }] = await Promise.all([
+    db.from('isbn_metadata').update({ title, author, cover_url, description }).eq('isbn', isbn),
+    db.from('books').update({ passcode }).eq('isbn', isbn)
+  ]);
 
-  if (error) {
-    alert('Save failed: ' + error.message);
+  if (metaError || bookError) {
+    alert('Save failed: ' + (metaError?.message || bookError?.message));
     return;
   }
 
@@ -514,7 +542,7 @@ async function deleteBook(isbn, title) {
 async function loadEntries() {
   const { data, error } = await db
     .from('entries')
-    .select('id, found_location, message, found_date, created_at, books(title)')
+    .select('id, finder_name, found_location, location_description, message, found_date, created_at, photo_url, books(isbn_metadata(title))')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -532,10 +560,17 @@ async function loadEntries() {
 
   const rows = data.map(entry => `
     <tr>
-      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
-      <td class="td-location" data-label="Found at">${escapeHtml(entry.found_location)}</td>
+      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.isbn_metadata?.title ?? '—')}</td>
+      <td class="td-author" data-label="Name">${escapeHtml(entry.finder_name || '—')}</td>
+      <td class="td-location" data-label="Found at">
+        ${escapeHtml(entry.found_location)}
+        ${entry.location_description ? `<div style="font-size:12px; font-style:italic; color:var(--ink-faint); margin-top:2px;">${escapeHtml(entry.location_description)}</div>` : ''}
+      </td>
       <td class="td-message" data-label="Message">${escapeHtml(entry.message || '—')}</td>
       <td class="td-date" data-label="Date">${formatDate(entry.found_date || entry.created_at)}</td>
+      <td data-label="Photo" style="text-align:center;">
+        ${entry.photo_url ? `<a href="${escapeHtml(entry.photo_url)}" target="_blank" rel="noopener"><img src="${escapeHtml(entry.photo_url)}" alt="" style="height:48px; width:48px; object-fit:cover; border:1px solid var(--border); display:block;" loading="lazy" /></a>` : '<span style="color:var(--ink-faint); font-style:italic; font-size:13px;">—</span>'}
+      </td>
       <td class="td-actions">
         <button class="btn-action btn-delete" onclick="deleteEntry('${entry.id}')">Delete</button>
       </td>
@@ -547,9 +582,11 @@ async function loadEntries() {
       <thead>
         <tr>
           <th>Book</th>
+          <th>Name</th>
           <th>Found at</th>
           <th>Message</th>
           <th>Date</th>
+          <th style="text-align:center;">Photo</th>
           <th></th>
         </tr>
       </thead>
@@ -569,4 +606,109 @@ async function deleteEntry(id) {
   }
 
   await loadAll();
+}
+
+// ── Submissions ──
+async function loadSubmissions() {
+  const { data, error } = await db
+    .from('book_submissions')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('submissionsTableContainer');
+  const countEl = document.getElementById('submissionsCount');
+
+  if (error) {
+    container.innerHTML = `<p class="empty-state">Failed to load submissions.</p>`;
+    return;
+  }
+
+  if (!data || !data.length) {
+    countEl.textContent = '';
+    container.innerHTML = `<p class="empty-state">No pending submissions.</p>`;
+    return;
+  }
+
+  // Fetch metadata for all submission ISBNs from the cache table
+  const isbns = [...new Set(data.map(s => s.isbn))];
+  let metaMap = {};
+  if (isbns.length) {
+    const { data: metaData } = await db.from('isbn_metadata').select('isbn, title, author').in('isbn', isbns);
+    metaMap = Object.fromEntries((metaData || []).map(m => [m.isbn, m]));
+  }
+
+  countEl.textContent = `(${data.length})`;
+
+  const rows = data.map(sub => {
+    const meta = metaMap[sub.isbn] || {};
+    return `
+      <tr>
+        <td class="td-title" data-label="Title">${escapeHtml(meta.title || '—')}</td>
+        <td class="td-author" data-label="Author">${escapeHtml(meta.author || '—')}</td>
+        <td class="td-isbn" data-label="ISBN">${escapeHtml(sub.isbn)}</td>
+        <td class="td-isbn" data-label="Passcode" style="text-align:center; letter-spacing:0.15em;">${escapeHtml(sub.passcode)}</td>
+        <td class="td-author" data-label="Released by">${escapeHtml(sub.released_by || '—')}</td>
+        <td class="td-message" data-label="Note">${escapeHtml(sub.release_note || '—')}</td>
+        <td class="td-date" data-label="Submitted">${formatDate(sub.created_at)}</td>
+        <td class="td-actions">
+          <button class="btn-action btn-edit" onclick="approveSubmission('${sub.id}')">Approve</button>
+          <button class="btn-action btn-delete" onclick="declineSubmission('${sub.id}')">Decline</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Author</th>
+          <th>ISBN</th>
+          <th style="text-align:center;">Passcode</th>
+          <th>Released by</th>
+          <th>Note</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function approveSubmission(id) {
+  const { data: sub, error: fetchError } = await db
+    .from('book_submissions')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !sub) {
+    alert('Could not load submission.');
+    return;
+  }
+
+  // Metadata is already in isbn_metadata (populated at scan/lookup time).
+  // Just insert the thin books row.
+  const { error } = await db.from('books').insert({
+    isbn:         sub.isbn,
+    passcode:     sub.passcode,
+    release_note: sub.release_note || null,
+    released_by:  sub.released_by || null
+  });
+
+  if (error) {
+    alert('Failed to add book: ' + error.message);
+    return;
+  }
+
+  await db.from('book_submissions').delete().eq('id', id);
+  await loadAll();
+}
+
+async function declineSubmission(id) {
+  if (!confirm('Decline and remove this submission?')) return;
+  await db.from('book_submissions').delete().eq('id', id);
+  await loadSubmissions();
 }
