@@ -1305,7 +1305,7 @@ h1 em {
     padding: 56px 0;
   }
   .release-step {
-    padding: 40px 8px;
+    padding: 52px 16px;
   }
   /* Horizontal divider between stacked steps */
   .release-step + .release-step::before {

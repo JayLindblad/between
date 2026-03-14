@@ -5,6 +5,7 @@ let videoStream = null;
 let scanInterval = null;
 let zxingReady = false;
 let readBarcodesFn = null;
+let scannerMode = 'finder'; // 'finder' | 'release'
 
 async function initZXing() {
   if (zxingReady) return true;
@@ -30,7 +31,8 @@ async function initZXing() {
   }
 }
 
-async function openCamera() {
+async function openCamera(mode) {
+  scannerMode = mode || 'finder';
   const overlay = document.getElementById('cameraOverlay');
   const status = document.getElementById('cameraStatus');
   const video = document.getElementById('cameraVideo');
@@ -48,10 +50,11 @@ async function openCamera() {
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     closeCamera();
-    const input = document.getElementById('isbnInput');
+    const inputId = scannerMode === 'release' ? 'releaseIsbn' : 'isbnInput';
+    const input = document.getElementById(inputId);
     input.focus();
     input.placeholder = 'Camera not supported on this connection — type the ISBN here';
-    document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     debugLog('mediaDevices unavailable — page likely served over HTTP', 'error');
     return;
   }
@@ -85,12 +88,12 @@ async function openCamera() {
     const denied  = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
 
     if (noCamera) {
-      // No camera hardware — close overlay and send user to ISBN input
       closeCamera();
-      const input = document.getElementById('isbnInput');
+      const inputId = scannerMode === 'release' ? 'releaseIsbn' : 'isbnInput';
+      const input = document.getElementById(inputId);
       input.focus();
       input.placeholder = 'No camera found — type the ISBN here';
-      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input.closest('section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
       status.className = 'camera-status error';
       status.textContent = denied
@@ -163,12 +166,18 @@ function onBarcodeDetected(isbn) {
 
   setTimeout(async () => {
     closeCamera();
-    await lookupISBN(isbn);
-    if (currentBook) {
-      openPasscodeModal();
+    if (scannerMode === 'release') {
+      document.getElementById('releaseIsbn').value = isbn;
+      previewSubmissionISBN();
+      document.querySelector('.release-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
-      showNotFoundResult();
-      document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await lookupISBN(isbn);
+      if (currentBook) {
+        openPasscodeModal();
+      } else {
+        showNotFoundResult();
+        document.querySelector('.scanner-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }, 700);
 }
