@@ -1024,7 +1024,6 @@ h1 em {
 
 .entry-date {
   font-size: 13px;
-  color: var(--ink-faint);
   font-style: italic;
 }
 
@@ -1179,6 +1178,12 @@ h1 em {
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   border-radius: 0;
+  color-scheme: light;
+}
+
+.form-input::placeholder, .form-textarea::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
 }
 
 .form-input:focus, .form-textarea:focus {
