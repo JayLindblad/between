@@ -1551,6 +1551,7 @@ h1 em {
   padding: 24px 32px;
   border: 1px solid var(--gold-glow-soft);
   border-radius: 4px;
+  background-color: var(--gold-glow-medium);
 }
 
 .stat-label {
