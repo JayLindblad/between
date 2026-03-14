@@ -1180,6 +1180,11 @@ h1 em {
   border-radius: 0;
 }
 
+.form-input::placeholder, .form-textarea::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
 .form-input:focus, .form-textarea:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px var(--gold-glow);
