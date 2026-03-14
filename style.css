@@ -739,9 +739,7 @@ h1 em {
 }
 
 .passcode-input--success {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 4px rgba(184,134,11,0.25) !important;
-  animation: passcodeUnlock 0.5s ease forwards;
+  animation: passcodeUnlock 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes passcodeShake {
@@ -755,9 +753,60 @@ h1 em {
 }
 
 @keyframes passcodeUnlock {
-  0%   { transform: scale(1);    opacity: 1; }
-  40%  { transform: scale(1.03); opacity: 1; }
-  100% { transform: scale(1.03); opacity: 0; }
+  /* key turns — sudden gold flash */
+  0%  {
+    transform: scale(1);
+    opacity: 1;
+    color: var(--ink);
+    border-color: var(--border);
+    box-shadow: none;
+    letter-spacing: 0.5em;
+  }
+  /* lock opens — bloom outward */
+  10% {
+    transform: scale(1.05);
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0  4px rgba(184,134,11,0.55),
+      0 0 18px rgba(184,134,11,0.35);
+    letter-spacing: 0.52em;
+  }
+  /* ripple expands — rings of light */
+  30% {
+    transform: scale(1.03);
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0  8px rgba(184,134,11,0.35),
+      0 0 0 18px rgba(184,134,11,0.15),
+      0 0 32px rgba(184,134,11,0.2);
+    letter-spacing: 0.58em;
+  }
+  /* sustained glow — hold the moment */
+  58% {
+    transform: scale(1.04);
+    opacity: 1;
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0 10px rgba(184,134,11,0.25),
+      0 0 0 24px rgba(184,134,11,0.08),
+      0 0 48px rgba(184,134,11,0.15);
+    letter-spacing: 0.65em;
+  }
+  /* dissolve — digits drift apart and fade */
+  100% {
+    transform: scale(1.06);
+    opacity: 0;
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow:
+      0 0 0 14px rgba(184,134,11,0),
+      0 0 0 32px rgba(184,134,11,0),
+      0 0 64px rgba(184,134,11,0);
+    letter-spacing: 0.85em;
+  }
 }
 
 .passcode-error {

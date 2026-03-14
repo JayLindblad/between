@@ -789,7 +789,7 @@ function verifyPasscode() {
   setTimeout(() => {
     closePasscodeModal();
     openModal();
-  }, 480);
+  }, 950);
 }
 
 // Helper called by scanner.js when a scanned ISBN is not in the database
