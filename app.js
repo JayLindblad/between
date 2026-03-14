@@ -38,6 +38,23 @@ function normalizeISBN(raw) {
   return raw.replace(/[-\s]/g, '');
 }
 
+// Merges the nested isbn_metadata join result into a flat book object so the
+// rest of the code can access book.title, book.description, etc. as before.
+function flattenBook(raw) {
+  const meta = raw.isbn_metadata || {};
+  return {
+    isbn:         raw.isbn,
+    title:        meta.title,
+    author:       meta.author,
+    cover_url:    meta.cover_url,
+    description:  meta.description,
+    passcode:     raw.passcode,
+    release_note: raw.release_note,
+    released_by:  raw.released_by,
+    entries:      raw.entries
+  };
+}
+
 // ── State ──
 let books = [];
 let currentBook = null;
@@ -297,7 +314,7 @@ async function loadAndRenderCatalog() {
   </p>`;
 
   const [booksResult, entriesResult] = await Promise.all([
-    supabase.from('books').select('isbn, title, author, cover_url'),
+    supabase.from('books').select('isbn, isbn_metadata(title, author, cover_url)'),
     supabase.from('entries').select('isbn')
   ]);
 
@@ -315,7 +332,10 @@ async function loadAndRenderCatalog() {
   });
 
   books = booksResult.data.map(b => ({
-    ...b,
+    isbn:       b.isbn,
+    title:      b.isbn_metadata?.title,
+    author:     b.isbn_metadata?.author,
+    cover_url:  b.isbn_metadata?.cover_url,
     entryCount: countMap[b.isbn] || 0
   }));
 
@@ -362,7 +382,7 @@ async function lookupISBN() {
 
   // Query the catalog and the metadata cache in parallel
   const [booksResult, metaResult] = await Promise.all([
-    supabase.from('books').select('*, entries(*)').eq('isbn', isbn).maybeSingle(),
+    supabase.from('books').select('*, isbn_metadata(*), entries(*)').eq('isbn', isbn).maybeSingle(),
     supabase.from('isbn_metadata').select('*').eq('isbn', isbn).maybeSingle()
   ]);
 
@@ -381,14 +401,14 @@ async function lookupISBN() {
 
   if (booksResult.data) {
     // ── Branch 1: book is in the library ──
-    currentBook = booksResult.data;
-    prefetchBook(booksResult.data);
-    document.getElementById('resultTitle').textContent = booksResult.data.title;
-    document.getElementById('resultAuthor').textContent = booksResult.data.author;
-    coverImg.src = bookCoverUrl(booksResult.data.isbn, booksResult.data.cover_url);
+    currentBook = flattenBook(booksResult.data);
+    prefetchBook(currentBook);
+    document.getElementById('resultTitle').textContent = currentBook.title;
+    document.getElementById('resultAuthor').textContent = currentBook.author;
+    coverImg.src = bookCoverUrl(currentBook.isbn, currentBook.cover_url);
     coverImg.style.display = 'block';
     coverPlaceholder.style.display = 'none';
-    const count = booksResult.data.entries.length;
+    const count = currentBook.entries.length;
     document.getElementById('resultStops').textContent =
       count === 0
         ? "No entries yet — you're the first"
@@ -550,7 +570,7 @@ document.getElementById('isbnInput').addEventListener('keydown', e => {
 async function openBookDirect(bookIsbn) {
   const { data, error } = await supabase
     .from('books')
-    .select('*, entries(*)')
+    .select('*, isbn_metadata(*), entries(*)')
     .eq('isbn', bookIsbn)
     .single();
 
@@ -559,8 +579,8 @@ async function openBookDirect(bookIsbn) {
     return;
   }
 
-  currentBook = data;
-  prefetchBook(data);
+  currentBook = flattenBook(data);
+  prefetchBook(currentBook);
   openPasscodeModal();
 }
 

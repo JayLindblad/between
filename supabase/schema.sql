@@ -3,15 +3,26 @@
 
 -- ── Tables ──────────────────────────────────────────────────────────────────
 
+-- isbn_metadata is the single source of truth for book metadata.
+-- It holds every ISBN ever looked up, whether or not it has been released.
+-- books, entries, and book_submissions all hang off this table via FK.
+
+create table isbn_metadata (
+  isbn        text primary key,
+  title       text,
+  author      text,
+  cover_url   text,   -- starts as external URL; updated to storage URL after background upload
+  description text,   -- fetched from Open Library; updated in the background after initial lookup
+  fetched_at  timestamptz not null default now()
+);
+
+-- books: ISBNs that have been released into the wild (admin-approved).
+-- Metadata (title/author/cover/description) lives in isbn_metadata.
 create table books (
-  isbn           text primary key,
-  title          text not null,
-  author         text not null,
-  cover_url      text,
-  release_note   text,
-  released_by    text,
-  passcode       text,  -- 6-digit code written in pen inside the book; required to view journey
-  description    text   -- cached from Open Library; populated on first view
+  isbn         text primary key references isbn_metadata(isbn) on delete cascade,
+  release_note text,
+  released_by  text,
+  passcode     text   -- 6-digit code written in pen inside the book; required to view journey
 );
 
 create table entries (
@@ -27,41 +38,33 @@ create table entries (
   created_at           timestamptz not null default now()
 );
 
--- Migration: if the table already exists, add new columns with:
--- alter table entries add column if not exists location_description text;
--- alter table entries add column if not exists photo_url text;
--- alter table books   add column if not exists passcode text;
--- alter table entries add column if not exists lat double precision;
--- alter table entries add column if not exists lng double precision;
--- alter table books   add column if not exists description text;
--- note: cover_url already exists; cache_book_cover rpc writes back fetched covers
-
 create index entries_isbn_idx on entries(isbn);
 
--- ── ISBN Metadata Cache ───────────────────────────────────────────────────────
--- Persistent cache for any ISBN ever looked up, regardless of whether it has
--- been approved into books. This means external APIs are called only once per
--- ISBN, ever. Covers are uploaded to Supabase Storage and the URL written back
--- here so future lookups always read from the DB.
+-- ── Book Submissions ─────────────────────────────────────────────────────────
+-- Visitors submit books they want to release into the wild.
+-- Admin reviews and approves (which inserts into books) or declines.
+-- Metadata lives in isbn_metadata — always populated at lookup time before submit.
 
-create table isbn_metadata (
-  isbn        text primary key,
-  title       text,
-  author      text,
-  cover_url   text,   -- starts as external URL; updated to storage URL after background upload
-  description text,   -- fetched from Open Library; updated in the background after initial lookup
-  fetched_at  timestamptz not null default now()
+create table book_submissions (
+  id           uuid primary key default gen_random_uuid(),
+  isbn         text not null references isbn_metadata(isbn) on delete cascade,
+  passcode     text not null,
+  release_note text,
+  released_by  text,
+  created_at   timestamptz not null default now()
 );
 
--- Migration: create table isbn_metadata (...) — new table, run the full create above.
-
 -- ── Row Level Security ───────────────────────────────────────────────────────
--- The anon key is public (used in the browser). Authenticated users (admins)
--- get full write access. Visitors can read everything and add entries only.
 
-alter table books          enable row level security;
-alter table entries        enable row level security;
-alter table isbn_metadata  enable row level security;
+alter table isbn_metadata   enable row level security;
+alter table books           enable row level security;
+alter table entries         enable row level security;
+alter table book_submissions enable row level security;
+
+-- isbn_metadata: public read; all writes go through security definer RPCs
+create policy "public can read isbn metadata"
+  on isbn_metadata for select
+  using (true);
 
 -- Books: public read; authenticated (admin) full write
 create policy "public can read books"
@@ -97,44 +100,22 @@ create policy "authenticated can delete entries"
   to authenticated
   using (true);
 
--- isbn_metadata: public read; all writes go through security definer RPCs
-create policy "public can read isbn metadata"
-  on isbn_metadata for select
+-- Submissions
+create policy "public can submit books"
+  on book_submissions for insert
+  with check (true);
+
+create policy "authenticated can manage submissions"
+  on book_submissions for all
+  to authenticated
   using (true);
 
 -- ── Functions ────────────────────────────────────────────────────────────────
--- Allows the anon key to cache a description on a book row without needing
--- a broad UPDATE policy. security definer runs as the table owner, bypassing
--- RLS. Only writes when description is currently null (won't overwrite admin edits).
 
-create or replace function cache_book_description(book_isbn text, book_description text)
-returns void
-language sql
-security definer
-as $$
-  update books
-  set description = book_description
-  where isbn = book_isbn
-    and description is null;
-$$;
-
-create or replace function cache_book_cover(book_isbn text, book_cover_url text)
-returns void
-language sql
-security definer
-as $$
-  update books
-  set cover_url = book_cover_url
-  where isbn = book_isbn
-    and cover_url is null;
-$$;
-
--- Upserts a row into isbn_metadata. COALESCE logic means:
---   - first call sets all fields
---   - later calls only fill in NULL fields (e.g. description arrives after cover)
---   - a non-null value is never overwritten by a null (so background tasks are safe)
--- Exception: cover_url is always updated if the incoming value is non-null, so that
--- the background storage-upload task can upgrade an external URL to a stable storage URL.
+-- cache_isbn_metadata: upserts a row into isbn_metadata.
+-- COALESCE logic: first call sets all fields; later calls only fill in NULLs.
+-- Exception: cover_url is always updated if the incoming value is non-null,
+-- so the background storage-upload task can upgrade an external URL to a stable URL.
 create or replace function cache_isbn_metadata(
   p_isbn        text,
   p_title       text,
@@ -155,43 +136,30 @@ as $$
     description = coalesce(excluded.description, isbn_metadata.description);
 $$;
 
--- ── Book Submissions ─────────────────────────────────────────────────────────
--- Visitors submit books they want to release into the wild.
--- Admin reviews and approves (which inserts into books) or declines.
--- Metadata (title/author/cover/description) lives in isbn_metadata, not here —
--- admins read it via a join when approving.
+-- cache_book_description: writes description to isbn_metadata when currently null.
+-- Called from the browser's anon key; security definer bypasses RLS.
+create or replace function cache_book_description(book_isbn text, book_description text)
+returns void
+language sql
+security definer
+as $$
+  update isbn_metadata
+  set description = book_description
+  where isbn = book_isbn
+    and description is null;
+$$;
 
-create table book_submissions (
-  id           uuid primary key default gen_random_uuid(),
-  isbn         text not null,
-  passcode     text not null,
-  release_note text,
-  released_by  text,
-  created_at   timestamptz not null default now()
-);
-
-alter table book_submissions enable row level security;
-
-create policy "public can submit books"
-  on book_submissions for insert
-  with check (true);
-
-create policy "authenticated can manage submissions"
-  on book_submissions for all
-  to authenticated
-  using (true);
-
--- Migration for existing deployments (run in order):
--- Step 1 — copy existing submission metadata into isbn_metadata before dropping columns:
---   insert into isbn_metadata (isbn, title, author, cover_url, description)
---   select isbn, title, author, cover_url, description
---   from book_submissions where title is not null
---   on conflict (isbn) do nothing;
--- Step 2 — drop now-redundant columns:
---   alter table book_submissions drop column if exists title;
---   alter table book_submissions drop column if exists author;
---   alter table book_submissions drop column if exists cover_url;
---   alter table book_submissions drop column if exists description;
+-- cache_book_cover: writes cover_url to isbn_metadata (always overwrites so storage
+-- URL can replace the original external URL).
+create or replace function cache_book_cover(book_isbn text, book_cover_url text)
+returns void
+language sql
+security definer
+as $$
+  update isbn_metadata
+  set cover_url = book_cover_url
+  where isbn = book_isbn;
+$$;
 
 -- ── Storage ───────────────────────────────────────────────────────────────────
 -- Public bucket for entry photos and cached book covers (visitors upload; anyone can view)
@@ -213,3 +181,38 @@ create policy "authenticated can delete entry photos"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'entry-photos');
+
+-- ── Migration (for existing deployments) ─────────────────────────────────────
+-- Run these in order in the Supabase SQL Editor if upgrading from the old schema
+-- where books stored title/author/cover_url/description directly.
+--
+-- Step 1 — ensure isbn_metadata exists (new table in this schema version):
+--   create table if not exists isbn_metadata ( ... ); -- see above
+--
+-- Step 2 — copy existing books metadata into isbn_metadata:
+--   insert into isbn_metadata (isbn, title, author, cover_url, description)
+--   select isbn, title, author, cover_url, description from books
+--   on conflict (isbn) do nothing;
+--
+-- Step 3 — copy existing book_submissions isbn values into isbn_metadata
+--   (only needed if book_submissions has rows with ISBNs not already in isbn_metadata):
+--   insert into isbn_metadata (isbn) select distinct isbn from book_submissions
+--   on conflict (isbn) do nothing;
+--
+-- Step 4 — add FK from books.isbn to isbn_metadata.isbn:
+--   alter table books
+--     add constraint books_isbn_fkey foreign key (isbn) references isbn_metadata(isbn) on delete cascade;
+--
+-- Step 5 — add FK from book_submissions.isbn to isbn_metadata.isbn:
+--   alter table book_submissions
+--     add constraint book_submissions_isbn_fkey foreign key (isbn) references isbn_metadata(isbn) on delete cascade;
+--
+-- Step 6 — drop now-redundant columns from books:
+--   alter table books
+--     drop column if exists title,
+--     drop column if exists author,
+--     drop column if exists cover_url,
+--     drop column if exists description;
+--
+-- Step 7 — update the RPCs (replace cache_book_description and cache_book_cover
+--   with the versions above that target isbn_metadata instead of books).

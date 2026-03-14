@@ -330,7 +330,7 @@ async function loadStats() {
 // ── Books ──
 async function loadBooks() {
   const [booksResult, entriesResult] = await Promise.all([
-    db.from('books').select('isbn, title, author, cover_url, release_note, released_by, passcode, description'),
+    db.from('books').select('isbn, release_note, released_by, passcode, isbn_metadata(title, author, cover_url, description)'),
     db.from('entries').select('isbn')
   ]);
 
@@ -343,7 +343,17 @@ async function loadBooks() {
     return;
   }
 
-  const data = booksResult.data || [];
+  // Flatten isbn_metadata join into each book object
+  const data = (booksResult.data || []).map(b => ({
+    isbn:         b.isbn,
+    title:        b.isbn_metadata?.title,
+    author:       b.isbn_metadata?.author,
+    cover_url:    b.isbn_metadata?.cover_url,
+    description:  b.isbn_metadata?.description,
+    passcode:     b.passcode,
+    release_note: b.release_note,
+    released_by:  b.released_by
+  }));
 
   if (!data.length) {
     container.innerHTML = `<p class="empty-state">No books yet. Add the first one above.</p>`;
@@ -440,9 +450,20 @@ async function addBook() {
 
   errorEl.textContent = '';
 
+  // Ensure isbn_metadata exists (may already be there from a prior scan)
+  const { error: metaError } = await db
+    .from('isbn_metadata')
+    .upsert({ isbn, title, author, cover_url }, { onConflict: 'isbn', ignoreDuplicates: false });
+
+  if (metaError) {
+    errorEl.textContent = 'Metadata error: ' + metaError.message;
+    return;
+  }
+
+  // Insert the thin books row (metadata lives in isbn_metadata)
   const { error } = await db
     .from('books')
-    .insert({ isbn, title, author, cover_url, release_note, released_by, passcode });
+    .insert({ isbn, release_note, released_by, passcode });
 
   if (error) {
     errorEl.textContent = error.message;
@@ -490,13 +511,14 @@ async function saveEditBook(isbn) {
 
   if (!title || !author) return;
 
-  const { error } = await db
-    .from('books')
-    .update({ title, author, cover_url, passcode, description })
-    .eq('isbn', isbn);
+  // Metadata lives in isbn_metadata; book-specific fields stay in books
+  const [{ error: metaError }, { error: bookError }] = await Promise.all([
+    db.from('isbn_metadata').update({ title, author, cover_url, description }).eq('isbn', isbn),
+    db.from('books').update({ passcode }).eq('isbn', isbn)
+  ]);
 
-  if (error) {
-    alert('Save failed: ' + error.message);
+  if (metaError || bookError) {
+    alert('Save failed: ' + (metaError?.message || bookError?.message));
     return;
   }
 
@@ -520,7 +542,7 @@ async function deleteBook(isbn, title) {
 async function loadEntries() {
   const { data, error } = await db
     .from('entries')
-    .select('id, finder_name, found_location, location_description, message, found_date, created_at, photo_url, books(title)')
+    .select('id, finder_name, found_location, location_description, message, found_date, created_at, photo_url, books(isbn_metadata(title))')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -538,7 +560,7 @@ async function loadEntries() {
 
   const rows = data.map(entry => `
     <tr>
-      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.title ?? '—')}</td>
+      <td class="td-title" data-label="Book" style="font-size:15px;">${escapeHtml(entry.books?.isbn_metadata?.title ?? '—')}</td>
       <td class="td-author" data-label="Name">${escapeHtml(entry.finder_name || '—')}</td>
       <td class="td-location" data-label="Found at">
         ${escapeHtml(entry.found_location)}
@@ -667,22 +689,13 @@ async function approveSubmission(id) {
     return;
   }
 
-  // Read cached metadata — always populated at lookup time
-  const { data: meta } = await db
-    .from('isbn_metadata')
-    .select('title, author, cover_url, description')
-    .eq('isbn', sub.isbn)
-    .maybeSingle();
-
+  // Metadata is already in isbn_metadata (populated at scan/lookup time).
+  // Just insert the thin books row.
   const { error } = await db.from('books').insert({
-    isbn: sub.isbn,
-    title: meta?.title || 'Unknown Title',
-    author: meta?.author || 'Unknown Author',
-    cover_url: meta?.cover_url || null,
-    description: meta?.description || null,
-    passcode: sub.passcode,
+    isbn:         sub.isbn,
+    passcode:     sub.passcode,
     release_note: sub.release_note || null,
-    released_by: sub.released_by || null
+    released_by:  sub.released_by || null
   });
 
   if (error) {
