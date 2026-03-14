@@ -502,12 +502,7 @@ async function lookupISBN() {
     if (externalTitle) {
       (async () => {
         try {
-          const dRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=description&limit=1`);
-          if (!dRes.ok) return;
-          const dData = await dRes.json();
-          const doc = dData.docs?.[0];
-          const raw = doc?.description;
-          const text = typeof raw === 'string' ? raw : (raw?.value || null);
+          const text = await fetchDescriptionText(isbn);
           const desc = sanitizeDescription(text);
           if (desc) {
             supabase.rpc('cache_isbn_metadata', {
@@ -546,6 +541,19 @@ async function openBookDirect(bookIsbn) {
 }
 
 // ── Book description ──
+async function fetchDescriptionText(isbn) {
+  const searchRes = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=key&limit=1`);
+  if (!searchRes.ok) return null;
+  const searchData = await searchRes.json();
+  const key = searchData.docs?.[0]?.key; // e.g. "/works/OL123W"
+  if (!key) return null;
+  const workRes = await fetch(`https://openlibrary.org${key}.json`);
+  if (!workRes.ok) return null;
+  const work = await workRes.json();
+  const raw = work.description;
+  return typeof raw === 'string' ? raw : (raw?.value || null);
+}
+
 function sanitizeDescription(text) {
   if (!text) return null;
   return text
@@ -569,13 +577,8 @@ async function fetchAndCacheDescription(book) {
   // Otherwise fetch from Open Library and write back to DB
   try {
     debugLog(`description: fetching from open library for isbn=${book.isbn}`);
-    const res = await fetch(`https://openlibrary.org/search.json?isbn=${book.isbn}&fields=description&limit=1`);
-    if (!res.ok) { debugLog(`description: search failed (${res.status})`, 'warn'); return null; }
-    const data = await res.json();
-    const doc = data.docs?.[0];
-    if (!doc) { debugLog('description: no results from search'); return null; }
-    const raw = doc.description;
-    const text = typeof raw === 'string' ? raw : (raw?.value || null);
+    const text = await fetchDescriptionText(book.isbn);
+    if (text === null) { debugLog('description: not found in open library'); return null; }
     const clean = sanitizeDescription(text);
     debugLog(`description: ${clean ? 'fetched (' + clean.length + ' chars), writing to db' : 'not found'}`);
     if (clean) {
