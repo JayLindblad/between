@@ -767,7 +767,7 @@ function resetEntryForm() {
       <input class="form-input" id="entryDate" type="date" />
     </div>
     <div class="form-field">
-      <label class="form-label">Message</label>
+      <label class="form-label">Message <span style="font-style:italic; text-transform:none; letter-spacing:0;"></span></label>
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
@@ -1007,9 +1007,21 @@ async function submitEntry() {
   const errorEl = document.getElementById('entryError');
   const btn = document.getElementById('submitEntryBtn');
 
+  if (!locationPlace && !message) {
+    errorEl.textContent = 'Please fill in both Location and Message.';
+    document.getElementById('entryLocationPlace').focus();
+    return;
+  }
+
   if (!locationPlace) {
     errorEl.textContent = 'Please enter a city or place name for the map.';
     document.getElementById('entryLocationPlace').focus();
+    return;
+  }
+
+  if (!message) {
+    errorEl.textContent = 'Please share a message about the book or your moment.';
+    document.getElementById('entryMessage').focus();
     return;
   }
 
