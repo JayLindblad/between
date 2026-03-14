@@ -455,6 +455,27 @@ h1 em {
 
 .lock-icon { font-size: 22px; }
 
+/* ── iOS 26 SAFARI TOOLBAR TINT HINT ──
+   Safari 26 samples the body background to tint its toolbar. A fixed element
+   with height < 50vh containing a 100vh child triggers the desired sampling.
+   Shown via JS when any modal is open; hidden otherwise. */
+.safari-toolbar-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: none;
+  width: 100vw;
+  height: 48px;
+  pointer-events: none;
+  z-index: 499;
+}
+.safari-toolbar-hint.active { display: block; }
+.safari-toolbar-hint > div {
+  height: 100vh;
+  background-color: #1a1612;
+}
+
 /* ── JOURNEY MODAL ── */
 .modal-overlay {
   position: fixed;
