@@ -1524,7 +1524,7 @@ h1 em {
 
 .stats-inner {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: 48px;
   max-width: 560px;
@@ -1535,15 +1535,24 @@ h1 em {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .stat-number {
-  font-family: var(--font-primary);
+  font-family: var(--font-body);
   font-size: clamp(52px, 8vw, 80px);
   font-weight: 300;
   line-height: 1;
   color: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1em;
+  padding: 24px 32px;
+  border-radius: 4px;
+  background: var(--white-06);
+  border: 1px solid var(--cream-15);
+  
 }
 
 .stat-label {
@@ -1559,6 +1568,7 @@ h1 em {
   color: var(--gold);
   letter-spacing: 0.1em;
   flex-shrink: 0;
+  align-content: center;
 }
 
 /* ── FOOTER ── */
