@@ -116,7 +116,7 @@ h1 em {
   gap: 32px;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 48px 32px 0;
+  padding: 48px 32px;
   align-items: stretch;
 }
 
