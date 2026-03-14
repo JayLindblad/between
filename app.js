@@ -614,7 +614,7 @@ function resetEntryForm() {
       <textarea class="form-textarea" id="entryMessage" placeholder="About the book, the place, the moment, or anything at all…"></textarea>
     </div>
     <div class="form-field">
-      <label class="form-label">A photo <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
+      <label class="form-label">A photo (optional)</label>
       <div class="photo-upload" id="photoUploadBox" onclick="this.querySelector('input').click()">
         <p class="photo-upload-text" id="photoUploadText">📷 &nbsp; Tap to add a photo</p>
         <input type="file" accept="image/*" style="display:none" id="photoFileInput" />
@@ -839,19 +839,19 @@ async function submitEntry() {
   const btn = document.getElementById('submitEntryBtn');
 
   if (!locationPlace) {
-    errorEl.textContent = 'Please enter a location.';
+    errorEl.textContent = 'Please enter a city or place name for the map.';
     document.getElementById('entryLocationPlace').focus();
     return;
   }
 
   if (!foundAt) {
-    errorEl.textContent = 'Please enter the date found.';
+    errorEl.textContent = 'Please enter the date you found it.';
     document.getElementById('entryDate').focus();
     return;
   }
 
   errorEl.textContent = '';
-  btn.textContent = 'Adding your chapter...';
+  btn.textContent = 'Leaving your mark…';
   btn.disabled = true;
 
   // Upload photo if one was selected
@@ -894,7 +894,7 @@ async function submitEntry() {
     });
 
   if (error) {
-    btn.textContent = 'Adding your chapter...';
+    btn.textContent = 'Leave Your Mark';
     btn.disabled = false;
     if (typeof debugLog === 'function') debugLog('entry insert error: ' + (error.message || error.code || JSON.stringify(error)), 'error');
     errorEl.textContent = 'Something went wrong: ' + (error.message || error.code || 'unknown error');
@@ -908,7 +908,7 @@ async function submitEntry() {
         Your chapter has been added.
       </p>
       <p style="font-size:15px; color:var(--ink-faint); font-style:italic;">
-        Thank you for contributing. Leave the book somewhere new.
+        Thank you for leaving a mark. Leave the book somewhere new.
       </p>
     </div>
   `;
