@@ -764,7 +764,7 @@ function resetEntryForm() {
     </div>
     <div class="form-field">
       <label class="form-label">When did you find it? <span style="font-style:italic; text-transform:none; letter-spacing:0;">(optional)</span></label>
-      <input class="form-input" id="entryDate" type="date" />
+      <input class="form-input" id="entryDate" type="text" placeholder="mm/dd/yyyy" />
     </div>
     <div class="form-field">
       <label class="form-label">Message</label>
@@ -1003,7 +1003,6 @@ async function submitEntry() {
   const locationPlace = document.getElementById('entryLocationPlace').value.trim();
   const locationDesc = document.getElementById('entryLocationDesc').value.trim();
   const message = document.getElementById('entryMessage').value.trim();
-  const foundAt = document.getElementById('entryDate').value || null;
   const errorEl = document.getElementById('entryError');
   const btn = document.getElementById('submitEntryBtn');
 
@@ -1011,6 +1010,27 @@ async function submitEntry() {
     errorEl.textContent = 'Please enter a city or place name for the map.';
     document.getElementById('entryLocationPlace').focus();
     return;
+  }
+
+  // Parse date from mm/dd/yyyy format to ISO format (YYYY-MM-DD)
+  let foundAt = null;
+  const dateInput = document.getElementById('entryDate').value.trim();
+  if (dateInput) {
+    const dateMatch = dateInput.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dateMatch) {
+      errorEl.textContent = 'Please enter date in mm/dd/yyyy format.';
+      document.getElementById('entryDate').focus();
+      return;
+    }
+    const month = parseInt(dateMatch[1], 10);
+    const day = parseInt(dateMatch[2], 10);
+    const year = parseInt(dateMatch[3], 10);
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      errorEl.textContent = 'Please enter a valid date.';
+      document.getElementById('entryDate').focus();
+      return;
+    }
+    foundAt = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   errorEl.textContent = '';
