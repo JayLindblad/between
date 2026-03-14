@@ -579,6 +579,7 @@ function openModal() {
 
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  document.body.style.backgroundColor = '#1a1612';
 
   if (entries.length > 0) {
     // Defer map init until after the modal is visible so Leaflet can measure dimensions
@@ -748,12 +749,14 @@ function openPasscodeModal() {
   document.getElementById('passcodeError').textContent = '';
   document.getElementById('passcodeOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  document.body.style.backgroundColor = '#1a1612';
   setTimeout(() => document.getElementById('passcodeInput').focus(), 50);
 }
 
 function closePasscodeModal() {
   document.getElementById('passcodeOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  document.body.style.backgroundColor = '';
 }
 
 function handlePasscodeOverlayClick(e) {
@@ -804,6 +807,7 @@ function closeModal() {
   if (mapEl) mapEl.style.display = 'none';
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  document.body.style.backgroundColor = '';
 }
 
 function handleOverlayClick(e) {
