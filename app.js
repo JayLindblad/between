@@ -92,8 +92,8 @@ async function fetchAndCacheCover(book) {
     const path = `covers/${book.isbn}.jpg`;
     const { error: uploadError } = await supabase.storage
       .from('entry-photos')
-      .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-    if (uploadError) {
+      .upload(path, blob, { contentType: 'image/jpeg' });
+    if (uploadError && uploadError.message !== 'The resource already exists') {
       debugLog(`cover: upload failed — ${uploadError.message}`, 'warn');
       return null;
     }
@@ -523,8 +523,12 @@ async function lookupISBN() {
           const path = `covers/${isbn}.jpg`;
           const { error: uploadError } = await supabase.storage
             .from('entry-photos')
-            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+            .upload(path, blob, { contentType: blob.type || 'image/jpeg' });
           if (!uploadError) {
+            // Only upgrade isbn_metadata to the stable storage URL if the upload
+            // actually created a new file. If the file already existed (a different
+            // cover from a prior path), leave isbn_metadata.cover_url as externalCover
+            // so it continues to match what was shown in resultCover.
             const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(path);
             const { error: coverCacheError } = await supabase.rpc('cache_isbn_metadata', {
               p_isbn: isbn, p_title: null, p_author: null,
@@ -532,7 +536,7 @@ async function lookupISBN() {
             });
             if (coverCacheError) console.error('isbn_metadata cover update error:', coverCacheError);
             else if (typeof debugLog === 'function') debugLog(`isbn_metadata: cover cached to storage for ${isbn}`);
-          } else {
+          } else if (uploadError.message !== 'The resource already exists') {
             console.error('cover upload error:', uploadError);
           }
         } catch (e) { console.error('cover upload exception:', e); }
